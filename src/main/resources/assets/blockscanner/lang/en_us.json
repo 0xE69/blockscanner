@@ -1,0 +1,4 @@
+{
+    "blockscanner.scan.results": "Starting block scan within %s blocks radius...",
+    "blockscanner.scan.block_type": "- %s: %d"
+}
