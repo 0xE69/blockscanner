@@ -611,7 +611,7 @@ public class ServerCommands {
             
             // Process only loaded sections to skip empty areas
             for (LevelChunkSection section : chunk.getSections()) {
-                if (section == null || section.isEmpty()) continue;
+                if (section == null || section.hasOnlyAir()) continue;
                 
                 int yStart = section.bottomBlockY();
                 int yEnd = yStart + 16;
