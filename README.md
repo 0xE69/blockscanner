@@ -1,82 +1,103 @@
 # BlockScanner
 
-A Minecraft Forge mod for scanning and logging modded blocks in your world.
+BlockScanner is a powerful Minecraft Forge utility mod designed to solve a critical problem faced by modded Minecraft players: migrating worlds between mod packs or dealing with removed mods.
 
-## Overview
+## What Does BlockScanner Do?
 
-BlockScanner is a lightweight utility mod that scans the blocks around your player and logs any non-vanilla (modded) blocks it finds. This is particularly useful for:
+BlockScanner scans your Minecraft world for blocks from specific mods and can automatically replace them with vanilla or other modded blocks based on a configurable mapping. This helps prevent world corruption and missing blocks when:
 
-- Identifying blocks from unknown mods in modpacks
-- Creating a reference list of all modded blocks in your world
-- Debugging modpack configurations
-- Finding rare or hidden modded blocks
+- Upgrading a world to a new mod pack
+- Removing mods from an existing world
+- Fixing worlds where certain mods are no longer available or maintained
 
-## Features
+## Key Features
 
-- **Automated Scanning**: Periodically scans blocks around your player while you explore
-- **Modded Block Identification**: Detects and logs only non-vanilla blocks
-- **Deduplication**: Each unique block is logged only once
-- **Configurable**: Can adjust scan interval and radius as needed
-- **Client-Side Only**: Works on any server without requiring server-side installation
-- **Performance Friendly**: Only scans loaded chunks with configurable frequency
+- **Automatic Block Replacement**: Automatically replaces blocks according to your configuration
+- **Block Scanning**: Identifies and logs all modded blocks in your world
+- **Chunk Processing**: Process specific chunks or regions of your world
+- **Configurable Replacements**: Easily define block replacements in a JSON configuration file
+- **Server Commands**: Extensive command system for server administrators
+- **Client-Side Support**: Works in both singleplayer and multiplayer environments
+
+## Commands
+
+BlockScanner provides a comprehensive set of commands (requires operator permission level 2):
+
+- `/blockscanner scan [radius]` - Scans for modded blocks in the specified radius
+- `/blockscanner replace <from> <to> [radius]` - Manually replace blocks of one type with another
+- `/blockscanner reload` - Reload the block replacements configuration file
+- `/blockscanner replacechunk <pos>` - Process a specific chunk at the given position
+- `/blockscanner activate [radius]` - Start automatic block replacement in the specified radius
+- `/blockscanner deactivate` - Stop any active block replacement process
+- `/blockscanner status` - Check the status of the block replacement process
+- `/blockscanner processall` - Process all currently loaded chunks
+
+## Configuration
+
+BlockScanner uses a JSON configuration file located at `./configs/block_replacements.json`. The format is:
+
+```json
+[
+    {
+        "original": "modid:block_to_replace",
+        "replacement": "modid:replacement_block"
+    },
+    ...
+]
+```
+
+A default configuration is provided in the mod, but you can customize it to fit your needs.
+
+## Usage Examples
+
+### Removing a Mod
+
+If you're removing a mod (e.g., "tconstruct"), add entries to replace its blocks with suitable alternatives:
+
+```json
+{
+    "original": "tconstruct:clear_glass",
+    "replacement": "minecraft:glass"
+}
+```
+
+### Upgrading a World
+
+When upgrading to a newer Minecraft version or mod pack, scan your world and generate a list of blocks that need replacement:
+
+1. Install BlockScanner in your old world
+2. Run `/blockscanner scan 128` to identify modded blocks
+3. Configure replacements in the JSON file
+4. Run `/blockscanner activate 128` to replace blocks in a 128-block radius
 
 ## Installation
 
 1. Install Minecraft Forge for version 1.18.2
-2. Download the latest BlockScanner release JAR file
-3. Place the JAR file in your Minecraft mods folder
-4. Launch Minecraft with the Forge profile
-
-## Usage
-
-The mod works automatically in the background:
-
-1. Start Minecraft with the mod installed
-2. Join any world or server
-3. Explore the world - BlockScanner will automatically detect modded blocks
-4. View the log file at `./logs/blockscanner_log.txt` to see all discovered blocks
-
-## Configuration
-
-Default settings:
-- **Scan Radius**: 64 blocks in each direction around the player
-- **Scan Interval**: Every 40 ticks (approximately 2 seconds)
-
-To modify these settings, edit the values in the source code and build a custom version.
-
-## Building From Source
-
-Prerequisites:
-- JDK 8 or higher
-- Gradle
-
-Steps:
-1. Clone this repository
-2. Run `./gradlew build`
-3. Find the compiled JAR in `build/libs/`
+2. Download the BlockScanner mod JAR file
+3. Place the JAR file in your Minecraft `mods` folder
+4. Start Minecraft and verify the mod is loaded
+5. Customize the `configs/block_replacements.json` file if needed
 
 ## Compatibility
 
 - Minecraft: 1.18.2
-- Forge: 40.3.0+
-- Works with any modpack for the matching version
+- Forge: 40.x.x+
+
+## Potential Use Cases
+
+- Server administrators migrating between mod packs
+- Players removing performance-heavy mods
+- Fixing worlds where certain mods have been discontinued
+- Preparing worlds for sharing with friends who may not have the same mods
+
+## Logging
+
+BlockScanner creates logs in the `logs/blockscanner_log.txt` file, which contains information about all discovered modded blocks and replacements performed.
 
 ## License
 
 All Rights Reserved
 
-## Contributing
+## Support
 
-Contributions are welcome! Feel free to open issues or submit pull requests for:
-- Bug fixes
-- Performance improvements
-- New features
-- Documentation improvements
-
-## Credits
-
-Developed for the Minecraft modding community to make modpack exploration easier.
-
----
-
-*Note: This mod is not affiliated with Mojang Studios or Microsoft.*
+For issues, suggestions, or questions, please use the GitHub issue tracker.

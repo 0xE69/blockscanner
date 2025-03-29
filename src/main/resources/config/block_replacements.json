@@ -1,0 +1,678 @@
+[
+    {
+        "original": "tconstruct:black_clear_stained_glass",
+        "replacement": "minecraft:black_stained_glass"
+    },
+    {
+        "original": "tconstruct:black_clear_stained_glass_pane",
+        "replacement": "minecraft:black_stained_glass_pane"
+    },
+    {
+        "original": "tconstruct:bloodshroom_button",
+        "replacement": "minecraft:dark_oak_button"
+    },
+    {
+        "original": "tconstruct:bloodshroom_fence",
+        "replacement": "minecraft:crimson_fence"
+    },
+    {
+        "original": "tconstruct:clear_glass",
+        "replacement": "minecraft:glass"
+    },
+    {
+        "original": "tconstruct:clear_glass_pane",
+        "replacement": "minecraft:glass_pane"
+    },
+    {
+        "original": "tconstruct:clear_tinted_glass",
+        "replacement": "minecraft:gray_stained_glass"
+    },
+    {
+        "original": "tconstruct:gray_clear_stained_glass",
+        "replacement": "minecraft:gray_stained_glass"
+    },
+    {
+        "original": "tconstruct:gray_clear_stained_glass_pane",
+        "replacement": "minecraft:light_gray_stained_glass_pane"
+    },
+    {
+        "original": "tconstruct:grout",
+        "replacement": "kubejs:grout"
+    },
+    {
+        "original": "tconstruct:light_gray_clear_stained_glass",
+        "replacement": "minecraft:gray_stained_glass"
+    },
+    {
+        "original": "tconstruct:light_gray_clear_stained_glass_pane",
+        "replacement": "minecraft:light_gray_stained_glass_pane"
+    },
+    {
+        "original": "tconstruct:mud_bricks",
+        "replacement": "kubejs:mud_bricks"
+    },
+    {
+        "original": "tconstruct:mud_bricks_slab",
+        "replacement": "kubejs:mud_bricks_slab"
+    },
+    {
+        "original": "tconstruct:mud_bricks_stairs",
+        "replacement": "kubejs:mud_bricks_stairs"
+    },
+    {
+        "original": "tconstruct:scorched_bricks",
+        "replacement": "kubejs:scorched_bricks"
+    },
+    {
+        "original": "tconstruct:scorched_bricks_fence",
+        "replacement": "kubejs:scorched_bricks_fence"
+    },
+    {
+        "original": "tconstruct:scorched_glass_pane",
+        "replacement": "minecraft:light_gray_stained_glass_pane"
+    },
+    {
+        "original": "tconstruct:scorched_road_slab",
+        "replacement": "kubejs:scorched_road_slab"
+    },
+    {
+        "original": "tconstruct:scorched_road_stairs",
+        "replacement": "kubejs:scorched_road_stairs"
+    },
+    {
+        "original": "tconstruct:seared_bricks",
+        "replacement": "kubejs:seared_bricks"
+    },
+    {
+        "original": "tconstruct:seared_cobble_slab",
+        "replacement": "kubejs:seared_cobble_slab"
+    },
+    {
+        "original": "tconstruct:seared_stone",
+        "replacement": "kubejs:seared_bricks"
+    },
+    {
+        "original": "tconstruct:seared_stone_stairs",
+        "replacement": "kubejs:seared_stone_stairs"
+    },
+    {
+        "original": "tconstruct:white_clear_stained_glass",
+        "replacement": "minecraft:white_stained_glass"
+    },
+    {
+        "original": "tconstruct:white_clear_stained_glass_pane",
+        "replacement": "minecraft:white_stained_glass_pane"
+    },
+    {
+        "original": "tconstruct:yellow_clear_stained_glass",
+        "replacement": "minecraft:yellow_stained_glass"
+    },
+    {
+        "original": "securitycraft:crystal_quartz_stairs",
+        "replacement": "minecraft:smooth_quartz_stairs"
+    },
+    {
+        "original": "securitycraft:iron_door_reinforced",
+        "replacement": "minecraft:iron_door"
+    },
+    {
+        "original": "securitycraft:reinforced_birch_button",
+        "replacement": "minecraft:birch_button"
+    },
+    {
+        "original": "securitycraft:reinforced_black_carpet",
+        "replacement": "minecraft:black_carpet"
+    },
+    {
+        "original": "securitycraft:reinforced_black_concrete",
+        "replacement": "minecraft:black_concrete"
+    },
+    {
+        "original": "securitycraft:reinforced_black_stained_glass",
+        "replacement": "minecraft:black_stained_glass"
+    },
+    {
+        "original": "securitycraft:reinforced_black_wool",
+        "replacement": "minecraft:black_wool"
+    },
+    {
+        "original": "securitycraft:reinforced_blackstone_slab",
+        "replacement": "minecraft:blackstone_slab"
+    },
+    {
+        "original": "securitycraft:reinforced_brown_carpet",
+        "replacement": "minecraft:brown_carpet"
+    },
+    {
+        "original": "securitycraft:reinforced_cauldron",
+        "replacement": "minecraft:cauldron"
+    },
+    {
+        "original": "securitycraft:reinforced_chain",
+        "replacement": "minecraft:chain"
+    },
+    {
+        "original": "securitycraft:reinforced_coal_block",
+        "replacement": "minecraft:coal_block"
+    },
+    {
+        "original": "securitycraft:reinforced_cobblestone",
+        "replacement": "minecraft:cobblestone"
+    },
+    {
+        "original": "securitycraft:reinforced_cobblestone_slab",
+        "replacement": "minecraft:cobblestone_slab"
+    },
+    {
+        "original": "securitycraft:reinforced_cobweb",
+        "replacement": "minecraft:cobweb"
+    },
+    {
+        "original": "securitycraft:reinforced_cracked_polished_blackstone_bricks",
+        "replacement": "minecraft:cracked_polished_blackstone_bricks"
+    },
+    {
+        "original": "securitycraft:reinforced_crimson_button",
+        "replacement": "minecraft:crimson_button"
+    },
+    {
+        "original": "securitycraft:reinforced_cut_copper",
+        "replacement": "minecraft:cut_copper"
+    },
+    {
+        "original": "securitycraft:reinforced_dark_oak_button",
+        "replacement": "minecraft:dark_oak_button"
+    },
+    {
+        "original": "securitycraft:reinforced_dark_oak_planks",
+        "replacement": "minecraft:dark_oak_planks"
+    },
+    {
+        "original": "securitycraft:reinforced_dark_oak_slab",
+        "replacement": "minecraft:dark_oak_slab"
+    },
+    {
+        "original": "securitycraft:reinforced_dark_oak_stairs",
+        "replacement": "minecraft:dark_oak_stairs"
+    },
+    {
+        "original": "securitycraft:reinforced_deepslate_tile_slab",
+        "replacement": "minecraft:deepslate_tile_slab"
+    },
+    {
+        "original": "securitycraft:reinforced_deepslate_tile_stairs",
+        "replacement": "minecraft:deepslate_tile_stairs"
+    },
+    {
+        "original": "securitycraft:reinforced_deepslate_tiles",
+        "replacement": "minecraft:deepslate_tiles"
+    },
+    {
+        "original": "securitycraft:reinforced_glass_pane",
+        "replacement": "minecraft:glass_pane"
+    },
+    {
+        "original": "securitycraft:reinforced_glowstone",
+        "replacement": "minecraft:glowstone"
+    },
+    {
+        "original": "securitycraft:reinforced_gravel",
+        "replacement": "minecraft:gravel"
+    },
+    {
+        "original": "securitycraft:reinforced_gray_carpet",
+        "replacement": "minecraft:gray_carpet"
+    },
+    {
+        "original": "securitycraft:reinforced_gray_concrete",
+        "replacement": "minecraft:gray_concrete"
+    },
+    {
+        "original": "securitycraft:reinforced_gray_wool",
+        "replacement": "minecraft:gray_wool"
+    },
+    {
+        "original": "securitycraft:reinforced_green_carpet",
+        "replacement": "minecraft:green_carpet"
+    },
+    {
+        "original": "securitycraft:reinforced_green_terracotta",
+        "replacement": "minecraft:green_terracotta"
+    },
+    {
+        "original": "securitycraft:reinforced_green_wool",
+        "replacement": "minecraft:green_wool"
+    },
+    {
+        "original": "securitycraft:reinforced_hopper",
+        "replacement": "minecraft:hopper"
+    },
+    {
+        "original": "securitycraft:reinforced_iron_bars",
+        "replacement": "minecraft:iron_bars"
+    },
+    {
+        "original": "securitycraft:reinforced_iron_block",
+        "replacement": "minecraft:iron_block"
+    },
+    {
+        "original": "securitycraft:reinforced_iron_trapdoor",
+        "replacement": "minecraft:iron_trapdoor"
+    },
+    {
+        "original": "securitycraft:reinforced_jungle_log",
+        "replacement": "minecraft:jungle_log"
+    },
+    {
+        "original": "securitycraft:reinforced_jungle_planks",
+        "replacement": "minecraft:jungle_planks"
+    },
+    {
+        "original": "securitycraft:reinforced_lantern",
+        "replacement": "minecraft:lantern"
+    },
+    {
+        "original": "securitycraft:reinforced_lever",
+        "replacement": "minecraft:lever"
+    },
+    {
+        "original": "securitycraft:reinforced_light_gray_carpet",
+        "replacement": "minecraft:light_gray_carpet"
+    },
+    {
+        "original": "securitycraft:reinforced_light_gray_concrete",
+        "replacement": "minecraft:light_gray_concrete"
+    },
+    {
+        "original": "securitycraft:reinforced_light_gray_stained_glass_pane",
+        "replacement": "minecraft:light_gray_stained_glass_pane"
+    },
+    {
+        "original": "securitycraft:reinforced_mossy_cobblestone_slab",
+        "replacement": "minecraft:mossy_cobblestone_slab"
+    },
+    {
+        "original": "securitycraft:reinforced_mossy_cobblestone_stairs",
+        "replacement": "minecraft:mossy_cobblestone_stairs"
+    },
+    {
+        "original": "securitycraft:reinforced_mossy_stone_brick_slab",
+        "replacement": "minecraft:mossy_stone_brick_slab"
+    },
+    {
+        "original": "securitycraft:reinforced_oak_planks",
+        "replacement": "minecraft:oak_planks"
+    },
+    {
+        "original": "securitycraft:reinforced_oak_stairs",
+        "replacement": "minecraft:oak_stairs"
+    },
+    {
+        "original": "securitycraft:reinforced_oxidized_cut_copper",
+        "replacement": "minecraft:oxidized_cut_copper"
+    },
+    {
+        "original": "securitycraft:reinforced_oxidized_cut_copper_stairs",
+        "replacement": "minecraft:oxidized_cut_copper_stairs"
+    },
+    {
+        "original": "securitycraft:reinforced_polished_andesite",
+        "replacement": "minecraft:polished_andesite"
+    },
+    {
+        "original": "securitycraft:reinforced_polished_blackstone",
+        "replacement": "minecraft:polished_blackstone"
+    },
+    {
+        "original": "securitycraft:reinforced_polished_blackstone_brick_slab",
+        "replacement": "minecraft:polished_blackstone_brick_slab"
+    },
+    {
+        "original": "securitycraft:reinforced_polished_blackstone_brick_stairs",
+        "replacement": "minecraft:polished_blackstone_brick_stairs"
+    },
+    {
+        "original": "securitycraft:reinforced_polished_blackstone_button",
+        "replacement": "minecraft:polished_blackstone_button"
+    },
+    {
+        "original": "securitycraft:reinforced_polished_blackstone_pressure_plate",
+        "replacement": "minecraft:polished_blackstone_pressure_plate"
+    },
+    {
+        "original": "securitycraft:reinforced_polished_blackstone_slab",
+        "replacement": "minecraft:polished_blackstone_slab"
+    },
+    {
+        "original": "securitycraft:reinforced_polished_blackstone_stairs",
+        "replacement": "minecraft:polished_blackstone_stairs"
+    },
+    {
+        "original": "securitycraft:reinforced_polished_blackstone_wall",
+        "replacement": "minecraft:polished_blackstone_wall"
+    },
+    {
+        "original": "securitycraft:reinforced_prismarine_bricks",
+        "replacement": "minecraft:prismarine_bricks"
+    },
+    {
+        "original": "securitycraft:reinforced_quartz_block",
+        "replacement": "minecraft:quartz_block"
+    },
+    {
+        "original": "securitycraft:reinforced_quartz_bricks",
+        "replacement": "minecraft:quartz_bricks"
+    },
+    {
+        "original": "securitycraft:reinforced_quartz_pillar",
+        "replacement": "minecraft:quartz_pillar"
+    },
+    {
+        "original": "securitycraft:reinforced_red_carpet",
+        "replacement": "minecraft:red_carpet"
+    },
+    {
+        "original": "securitycraft:reinforced_red_concrete",
+        "replacement": "minecraft:red_concrete"
+    },
+    {
+        "original": "securitycraft:reinforced_red_terracotta",
+        "replacement": "minecraft:red_terracotta"
+    },
+    {
+        "original": "securitycraft:reinforced_red_wool",
+        "replacement": "minecraft:red_wool"
+    },
+    {
+        "original": "securitycraft:reinforced_rooted_dirt",
+        "replacement": "minecraft:rooted_dirt"
+    },
+    {
+        "original": "securitycraft:reinforced_sandstone",
+        "replacement": "minecraft:sandstone"
+    },
+    {
+        "original": "securitycraft:reinforced_smooth_quartz",
+        "replacement": "minecraft:smooth_quartz"
+    },
+    {
+        "original": "securitycraft:reinforced_smooth_quartz_slab",
+        "replacement": "minecraft:smooth_quartz_slab"
+    },
+    {
+        "original": "securitycraft:reinforced_smooth_quartz_stairs",
+        "replacement": "minecraft:smooth_quartz_stairs"
+    },
+    {
+        "original": "securitycraft:reinforced_smooth_stone",
+        "replacement": "minecraft:smooth_stone"
+    },
+    {
+        "original": "securitycraft:reinforced_stone_brick_stairs",
+        "replacement": "minecraft:stone_brick_stairs"
+    },
+    {
+        "original": "securitycraft:reinforced_stone_brick_wall",
+        "replacement": "minecraft:stone_brick_wall"
+    },
+    {
+        "original": "securitycraft:reinforced_stone_bricks",
+        "replacement": "minecraft:stone_bricks"
+    },
+    {
+        "original": "securitycraft:reinforced_stone_button",
+        "replacement": "minecraft:stone_button"
+    },
+    {
+        "original": "securitycraft:reinforced_stone_pressure_plate",
+        "replacement": "minecraft:stone_pressure_plate"
+    },
+    {
+        "original": "securitycraft:reinforced_stripped_acacia_wood",
+        "replacement": "minecraft:stripped_acacia_wood"
+    },
+    {
+        "original": "securitycraft:reinforced_stripped_birch_log",
+        "replacement": "minecraft:stripped_birch_log"
+    },
+    {
+        "original": "securitycraft:reinforced_stripped_birch_wood",
+        "replacement": "minecraft:stripped_birch_wood"
+    },
+    {
+        "original": "securitycraft:reinforced_stripped_oak_log",
+        "replacement": "minecraft:stripped_oak_log"
+    },
+    {
+        "original": "securitycraft:reinforced_stripped_oak_wood",
+        "replacement": "minecraft:stripped_oak_wood"
+    },
+    {
+        "original": "securitycraft:reinforced_tinted_glass",
+        "replacement": "minecraft:tinted_glass"
+    },
+    {
+        "original": "securitycraft:reinforced_white_carpet",
+        "replacement": "minecraft:white_carpet"
+    },
+    {
+        "original": "securitycraft:reinforced_white_concrete",
+        "replacement": "minecraft:white_concrete"
+    },
+    {
+        "original": "securitycraft:reinforced_white_stained_glass_pane",
+        "replacement": "minecraft:white_stained_glass_pane"
+    },
+    {
+        "original": "securitycraft:reinforced_white_terracotta",
+        "replacement": "minecraft:white_terracotta"
+    },
+    {
+        "original": "securitycraft:reinforced_white_wool",
+        "replacement": "minecraft:white_wool"
+    },
+    {
+        "original": "securitycraft:reinforced_yellow_carpet",
+        "replacement": "minecraft:yellow_carpet"
+    },
+    {
+        "original": "securitycraft:secret_birch_sign_wall",
+        "replacement": "minecraft:birch_sign_wall"
+    },
+    {
+        "original": "securitycraft:secret_dark_oak_sign_wall",
+        "replacement": "minecraft:dark_oak_sign_wall"
+    },
+    {
+        "original": "securitycraft:secret_sign_wall",
+        "replacement": "minecraft:sign_wall"
+    },
+    {
+        "original": "securitycraft:secret_spruce_sign_wall",
+        "replacement": "minecraft:spruce_sign_wall"
+    },
+    {
+        "original": "securitycraft:security_camera",
+        "replacement": "crafting_dead_decore:camera"
+    },
+    {
+        "original": "mekanismgenerators:bio_generator",
+        "replacement": "minecraft:polished_deepslate"
+    },
+    {
+        "original": "mekanismgenerators:fission_reactor_casing",
+        "replacement": "minecraft:iron_block"
+    },
+    {
+        "original": "mekanismgenerators:reactor_glass",
+        "replacement": "chipped:glass_1"
+    },
+    {
+        "original": "mekanismgenerators:turbine_vent",
+        "replacement": "chipped:andesite_56"
+    },
+    {
+        "original": "mekanism:advanced_chemical_tank",
+        "replacement": "crafting_dead_decore:gastank"
+    },
+    {
+        "original": "mekanism:block_charcoal",
+        "replacement": "chipped:coal_block_1"
+    },
+    {
+        "original": "mekanism:block_fluorite",
+        "replacement": "minecraft:quartz_block"
+    },
+    {
+        "original": "mekanism:block_lead",
+        "replacement": "chipped:clay_28"
+    },
+    {
+        "original": "mekanism:block_osmium",
+        "replacement": "chipped:clay_33"
+    },
+    {
+        "original": "mekanism:block_refined_glowstone",
+        "replacement": "chipped:glowstone_1"
+    },
+    {
+        "original": "mekanism:block_steel",
+        "replacement": "minecraft:polished_andesite"
+    },
+    {
+        "original": "mekanism:block_tin",
+        "replacement": "chipped:calcite_6"
+    },
+    {
+        "original": "mekanism:cardboard_box",
+        "replacement": "crafting_dead_decore:box"
+    },
+    {
+        "original": "mekanism:chemical_infuser",
+        "replacement": "chipped:deepslate_21"
+    },
+    {
+        "original": "mekanism:chemical_washer",
+        "replacement": "chipped:deepslate_21"
+    },
+    {
+        "original": "mekanism:creative_chemical_tank",
+        "replacement": "crafting_dead_decore:gastank"
+    },
+    {
+        "original": "mekanism:creative_energy_cube",
+        "replacement": "chipped:deepslate_21"
+    },
+    {
+        "original": "mekanism:deepslate_fluorite_ore",
+        "replacement": "minecraft:deepslate_iron_ore"
+    },
+    {
+        "original": "mekanism:deepslate_lead_ore",
+        "replacement": "minecraft:deepslate_coal_ore"
+    },
+    {
+        "original": "mekanism:deepslate_osmium_ore",
+        "replacement": "minecraft:deepslate_redstone_ore"
+    },
+    {
+        "original": "mekanism:deepslate_tin_ore",
+        "replacement": "minecraft:deepslate_tin_ore"
+    },
+    {
+        "original": "mekanism:dynamic_tank",
+        "replacement": "chipped:deepslate_1"
+    },
+    {
+        "original": "mekanism:electric_pump",
+        "replacement": "chipped:deepslate_6"
+    },
+    {
+        "original": "mekanism:fluorite_ore",
+        "replacement": "minecraft:iron_ore"
+    },
+    {
+        "original": "mekanism:lead_ore",
+        "replacement": "minecraft:iron_ore"
+    },
+    {
+        "original": "mekanism:logistical_sorter",
+        "replacement": "chipped:deepslate_21"
+    },
+    {
+        "original": "mekanism:osmium_compressor",
+        "replacement": "chipped:deepslate_21"
+    },
+    {
+        "original": "mekanism:osmium_ore",
+        "replacement": "minecraft:iron_ore"
+    },
+    {
+        "original": "mekanism:pressure_disperser",
+        "replacement": "chipped:deepslate_21"
+    },
+    {
+        "original": "mekanism:radioactive_waste_barrel",
+        "replacement": "crafting_dead_decore:waterbarrelyellow"
+    },
+    {
+        "original": "mekanism:security_desk",
+        "replacement": "mcwfurnitures:stripped_dark_oak_covered_desk"
+    },
+    {
+        "original": "mekanism:sps_casing",
+        "replacement": "chipped:andesite_39"
+    },
+    {
+        "original": "mekanism:structural_glass",
+        "replacement": "minecraft:light_gray_stained_glass"
+    },
+    {
+        "original": "mekanism:tin_ore",
+        "replacement": "minecraft:iron_ore"
+    },
+    {
+        "original": "mekanism:ultimate_infusing_factory",
+        "replacement": "chipped:basalt_64"
+    },
+    {
+        "original": "ae2:quartz_block",
+        "replacement": "minecraft:quartz_block"
+    },
+    {
+        "original": "ae2:quartz_glass",
+        "replacement": "minecraft:glass"
+    },
+    {
+        "original": "ae2:quartz_ore",
+        "replacement": "minecraft:calcite"
+    },
+    {
+        "original": "ae2:quartz_pillar_stairs",
+        "replacement": "minecraft:quartz_stairs"
+    },
+    {
+        "original": "ae2:quartz_pillar_wall",
+        "replacement": "minecraft:quartz_wall"
+    },
+    {
+        "original": "ae2:quartz_slab",
+        "replacement": "minecraft:smooth_quartz_slab"
+    },
+    {
+        "original": "ae2:sky_stone_block",
+        "replacement": "minecraft:polished_deepslate"
+    },
+    {
+        "original": "ae2:sky_stone_brick",
+        "replacement": "chipped:black_stone_8"
+    },
+    {
+        "original": "ae2:sky_stone_chest",
+        "replacement": "minecraft:chest"
+    },
+    {
+        "original": "ae2:sky_stone_small_brick",
+        "replacement": "chipped:black_stone_8"
+    }
+]
