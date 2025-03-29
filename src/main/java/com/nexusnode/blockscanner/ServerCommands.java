@@ -29,9 +29,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.TextComponent;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerChunkCache;
 import net.minecraft.world.level.ChunkPos;
-import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.event.RegisterCommandsEvent;
@@ -47,7 +45,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.HashMap; // Add the missing import for HashMap
+import java.util.HashSet;
 
 @Mod.EventBusSubscriber
 public class ServerCommands {
@@ -57,15 +55,20 @@ public class ServerCommands {
     private static final Set<ChunkPos> pendingChunks = ConcurrentHashMap.newKeySet();
     private static final Logger LOGGER = LogManager.getLogger("BlockScanner");
     
+    // Track progress for reporting
+    private static int totalChunksToProcess = 0;
+    private static int totalBlocksReplaced = 0;
+    private static final int PROGRESS_UPDATE_INTERVAL = 3000; // 3 seconds in milliseconds
+    
     @SubscribeEvent
     public static void onRegisterCommands(RegisterCommandsEvent event) {
         LOGGER.info("Registering BlockScanner commands...");
         CommandDispatcher<CommandSourceStack> dispatcher = event.getDispatcher();
-
+    
         // Register /blockscanner command
         dispatcher.register(
             Commands.literal("blockscanner")
-                // Change permission level to 0 so anyone can use basic commands
+                // Change permission level to 0 so anyone can use basic commands 
                 .requires(source -> source.hasPermission(0)) 
                 .then(Commands.literal("scan")
                     .then(Commands.argument("radius", IntegerArgumentType.integer(1, 256))
@@ -163,7 +166,7 @@ public class ServerCommands {
         LOGGER.info("BlockScanner commands registered successfully!");
         System.out.println("[BlockScanner] Commands registered. Use /blockscanner or /bscan");
     }
-
+    
     private static int scanArea(CommandContext<CommandSourceStack> context, int radius) throws CommandSyntaxException {
         CommandSourceStack source = context.getSource();
         ServerLevel level = source.getLevel();
@@ -178,7 +181,7 @@ public class ServerCommands {
         // Iterate through blocks in radius
         for (int x = -radius; x <= radius; x++) {
             for (int y = -radius; y <= radius; y++) {
-                for (int z = -radius; y <= radius; z++) {
+                for (int z = -radius; z <= radius; z++) {
                     BlockPos pos = playerPos.offset(x, y, z);
                     
                     // Skip unloaded chunks
@@ -191,6 +194,9 @@ public class ServerCommands {
                         moddedBlocksCount++;
                         if (!moddedBlockTypes.contains(registryName)) {
                             moddedBlockTypes.add(registryName);
+                            
+                            // Add to global scanned blocks tracker
+                            ScannedBlocksTracker.addScannedBlock(registryName);
                         }
                     }
                 }
@@ -212,8 +218,6 @@ public class ServerCommands {
         
         return moddedBlocksCount;
     }
-    
-    // ... other methods with TextComponent fixes ...
     
     private static int replaceBlocks(
         CommandContext<CommandSourceStack> context, 
@@ -250,7 +254,7 @@ public class ServerCommands {
         
         for (int x = -radius; x <= radius; x++) {
             for (int y = -radius; y <= radius; y++) {
-                for (int z = -radius; x <= radius; z++) {
+                for (int z = -radius; z <= radius; z++) {
                     BlockPos pos = playerPos.offset(x, y, z);
                     
                     // Skip unloaded chunks
@@ -305,6 +309,10 @@ public class ServerCommands {
         int chunkRadius = (radius / 16) + 1;
         int chunksFound = 0;
         
+        // Reset tracking counters
+        totalBlocksReplaced = 0;
+        pendingChunks.clear();
+        
         // Queue all chunks in the area for processing
         for (int x = -chunkRadius; x <= chunkRadius; x++) {
             for (int z = -chunkRadius; z <= chunkRadius; z++) {
@@ -315,6 +323,9 @@ public class ServerCommands {
                 }
             }
         }
+        
+        // Set total chunks for progress tracking
+        totalChunksToProcess = chunksFound;
         
         source.sendSuccess(new TextComponent("Queued " + chunksFound + 
             " chunks for processing. Use '/blockscanner status' to check progress."), true);
@@ -336,10 +347,18 @@ public class ServerCommands {
         // Set the flag to stop the process
         replacementActive.set(false);
         int remainingChunks = pendingChunks.size();
+        int processedChunks = totalChunksToProcess - remainingChunks;
         pendingChunks.clear();
         
-        source.sendSuccess(new TextComponent("Block replacement has been deactivated. " + 
-            remainingChunks + " chunks were not processed."), true);
+        source.sendSuccess(new TextComponent("Block replacement has been deactivated:"), true);
+        source.sendSuccess(new TextComponent(String.format(
+            "- Processed: %d/%d chunks (%.1f%%)", 
+            processedChunks, totalChunksToProcess, 
+            (float) processedChunks / totalChunksToProcess * 100)), true);
+        source.sendSuccess(new TextComponent(String.format(
+            "- Replaced: %d blocks", totalBlocksReplaced)), true);
+        source.sendSuccess(new TextComponent(String.format(
+            "- Remaining: %d chunks were not processed", remainingChunks)), true);
         
         return 1;
     }
@@ -349,8 +368,32 @@ public class ServerCommands {
         
         if (replacementActive.get()) {
             int remaining = pendingChunks.size();
-            source.sendSuccess(new TextComponent("Block replacement is currently active with " + 
-                remaining + " chunks remaining to be processed."), true);
+            int processed = totalChunksToProcess - remaining;
+            float percentComplete = totalChunksToProcess > 0 ? (float) processed / totalChunksToProcess * 100 : 0;
+            
+            // Create a text-based progress bar
+            int barLength = 20;
+            int filledLength = (int) (barLength * processed / totalChunksToProcess);
+            StringBuilder progressBar = new StringBuilder("[");
+            for (int i = 0; i < barLength; i++) {
+                if (i < filledLength) {
+                    progressBar.append("=");
+                } else if (i == filledLength) {
+                    progressBar.append(">");
+                } else {
+                    progressBar.append(" ");
+                }
+            }
+            progressBar.append("]");
+            
+            source.sendSuccess(new TextComponent("Block replacement is active:"), true);
+            source.sendSuccess(new TextComponent(String.format(
+                "Progress: %s %.1f%%", progressBar, percentComplete)), true);
+            source.sendSuccess(new TextComponent(String.format(
+                "Chunks: %d/%d processed, %d remaining", 
+                processed, totalChunksToProcess, remaining)), true);
+            source.sendSuccess(new TextComponent(String.format(
+                "Blocks replaced: %d", totalBlocksReplaced)), true);
         } else {
             source.sendSuccess(new TextComponent("Block replacement is not currently active."), true);
         }
@@ -371,7 +414,7 @@ public class ServerCommands {
         }
         
         ServerLevel level = source.getLevel();
-        Set<ChunkPos> loadedChunks = new java.util.HashSet<>();
+        Set<ChunkPos> loadedChunks = new HashSet<>();
         
         // Get all loaded chunks in 1.18.2 compatible way
         for (int chunkX = level.getMinSection(); chunkX < level.getMaxSection(); chunkX++) {
@@ -388,8 +431,16 @@ public class ServerCommands {
             return 0;
         }
         
+        // Reset tracking counters
+        totalBlocksReplaced = 0;
+        pendingChunks.clear();
+        
         // Add all loaded chunks to the pending list
         pendingChunks.addAll(loadedChunks);
+        
+        // Set total chunks for progress tracking
+        totalChunksToProcess = loadedChunks.size();
+        
         replacementActive.set(true);
         
         source.sendSuccess(new TextComponent("Processing all " + loadedChunks.size() + 
@@ -406,11 +457,12 @@ public class ServerCommands {
         new Thread(() -> {
             try {
                 int processedChunks = 0;
-                int totalReplacements = 0;
+                long lastProgressUpdate = System.currentTimeMillis();
+                int lastTotalBlocksReplaced = 0;
                 
                 while (replacementActive.get() && !pendingChunks.isEmpty()) {
                     // Take up to 5 chunks at a time
-                    Set<ChunkPos> batchChunks = new java.util.HashSet<>();
+                    Set<ChunkPos> batchChunks = new HashSet<>();
                     pendingChunks.stream().limit(5).forEach(chunk -> {
                         batchChunks.add(chunk);
                         pendingChunks.remove(chunk);
@@ -423,17 +475,66 @@ public class ServerCommands {
                         
                         // Process this chunk
                         int replacements = processChunkWithReplacements(level, chunkPos);
-                        totalReplacements += replacements;
+                        totalBlocksReplaced += replacements;
                         processedChunks++;
+                        
+                        // Update progress every PROGRESS_UPDATE_INTERVAL milliseconds
+                        long currentTime = System.currentTimeMillis();
+                        if (currentTime - lastProgressUpdate >= PROGRESS_UPDATE_INTERVAL) {
+                            int remainingChunks = pendingChunks.size();
+                            int completedChunks = totalChunksToProcess - remainingChunks;
+                            float percentComplete = (float) completedChunks / totalChunksToProcess * 100;
+                            
+                            // Calculate blocks replaced since last update
+                            int newBlocksReplaced = totalBlocksReplaced - lastTotalBlocksReplaced;
+                            lastTotalBlocksReplaced = totalBlocksReplaced;
+                            
+                            // Create progress bar
+                            int barLength = 30;
+                            int filledLength = (int) (barLength * completedChunks / totalChunksToProcess);
+                            StringBuilder progressBar = new StringBuilder("[");
+                            for (int i = 0; i < barLength; i++) {
+                                if (i < filledLength) {
+                                    progressBar.append("=");
+                                } else if (i == filledLength) {
+                                    progressBar.append(">");
+                                } else {
+                                    progressBar.append(" ");
+                                }
+                            }
+                            progressBar.append("]");
+                            
+                            String progressMessage = String.format(
+                                "[BlockScanner] Progress: %s %.1f%% | %d/%d chunks | %d blocks replaced total | %d new blocks replaced",
+                                progressBar, percentComplete, completedChunks, totalChunksToProcess, 
+                                totalBlocksReplaced, newBlocksReplaced
+                            );
+                            
+                            System.out.println(progressMessage);
+                            LOGGER.info(progressMessage);
+                            
+                            // Update the timestamp for next progress update
+                            lastProgressUpdate = currentTime;
+                        }
                         
                         // Don't overload the server - sleep a bit between chunks
                         Thread.sleep(50);
                     }
                 }
                 
+                // Final progress update
+                int completedChunks = totalChunksToProcess - pendingChunks.size();
+                String completionMessage = String.format(
+                    "[BlockScanner] Processing complete: %d/%d chunks processed (%d blocks replaced)",
+                    completedChunks, totalChunksToProcess, totalBlocksReplaced
+                );
+                
+                System.out.println(completionMessage);
+                LOGGER.info(completionMessage);
+                
                 // Send a completion message to server console
                 System.out.println("[BlockScanner] Finished processing " + processedChunks + 
-                    " chunks with " + totalReplacements + " block replacements");
+                    " chunks with " + totalBlocksReplaced + " block replacements");
             } catch (Exception e) {
                 System.err.println("[BlockScanner] Error in background processing: " + e.getMessage());
                 e.printStackTrace();
@@ -452,7 +553,7 @@ public class ServerCommands {
         ChunkPos chunkPos = new ChunkPos(blockPos);
         source.sendSuccess(new TextComponent("Processing chunk at " + chunkPos), true);
         
-        Set<String> replacedBlocks = new java.util.HashSet<>();
+        Set<String> replacedBlocks = new HashSet<>();
         int replacementCount = processChunkWithReplacements(level, chunkPos, replacedBlocks);
         
         source.sendSuccess(new TextComponent("Replaced " + replacementCount + " blocks in chunk " + chunkPos), true);
@@ -511,32 +612,6 @@ public class ServerCommands {
         return replacementCount;
     }
     
-    // New method for safer block replacement
-    private static void safelyReplaceBlock(ServerLevel level, BlockPos pos, BlockState newState) {
-        try {
-            // First try with standard replacement (flag 3 = update + notify)
-            level.setBlock(pos, newState, 3);
-        } catch (Exception e) {
-            if (e.getMessage() != null && e.getMessage().contains("updating neighbours")) {
-                LOGGER.info("Trying alternative block replacement method for " + pos + " due to neighbor update issue");
-                try {
-                    // Try with flag 2 (only notify, no updates to neighbors)
-                    level.setBlock(pos, newState, 2);
-                } catch (Exception e2) {
-                    // If that also fails, try with flag 0 (no updates at all)
-                    try {
-                        level.setBlock(pos, newState, 0);
-                    } catch (Exception e3) {
-                        throw new RuntimeException("All block replacement methods failed for " + pos, e3);
-                    }
-                }
-            } else {
-                // It's a different exception, rethrow it
-                throw e;
-            }
-        }
-    }
-    
     // Overloaded version without tracking
     private static int processChunkWithReplacements(ServerLevel level, ChunkPos chunkPos) {
         return processChunkWithReplacements(level, chunkPos, null);
@@ -581,6 +656,7 @@ public class ServerCommands {
      */
     private static int listScannedBlocks(CommandContext<CommandSourceStack> context) {
         CommandSourceStack source = context.getSource();
+        
         Set<String> scannedBlocks = ScannedBlocksTracker.getScannedBlocks();
         
         if (scannedBlocks.isEmpty()) {
@@ -588,10 +664,9 @@ public class ServerCommands {
             return 0;
         }
         
-        source.sendSuccess(new TextComponent("Found " + scannedBlocks.size() + " scanned block types:"), true);
-        
         // Group blocks by mod ID for better organization
-        Map<String, List<String>> blocksByMod = new HashMap<>();
+        Map<String, List<String>> blocksByMod = new java.util.HashMap<>();
+        
         for (String blockId : scannedBlocks) {
             String[] parts = blockId.split(":", 2);
             if (parts.length == 2) {
@@ -599,6 +674,8 @@ public class ServerCommands {
                 blocksByMod.computeIfAbsent(modId, k -> new ArrayList<>()).add(blockId);
             }
         }
+        
+        source.sendSuccess(new TextComponent("Found " + scannedBlocks.size() + " scanned block types:"), true);
         
         // List blocks by mod
         for (Map.Entry<String, List<String>> entry : blocksByMod.entrySet()) {
@@ -633,6 +710,32 @@ public class ServerCommands {
         } else {
             source.sendFailure(new TextComponent("Failed to generate replacement configuration"));
             return 0;
+        }
+    }
+    
+    // New method for safer block replacement
+    private static void safelyReplaceBlock(ServerLevel level, BlockPos pos, BlockState newState) {
+        try {
+            // First try with standard replacement (flag 3 = update + notify)
+            level.setBlock(pos, newState, 3);
+        } catch (Exception e) {
+            if (e.getMessage() != null && e.getMessage().contains("updating neighbours")) {
+                LOGGER.info("Trying alternative block replacement method for " + pos + " due to neighbor update issue");
+                try {
+                    // Try with flag 2 (only notify, no updates to neighbors)
+                    level.setBlock(pos, newState, 2);
+                } catch (Exception e2) {
+                    // If that also fails, try with flag 0 (no updates at all)
+                    try {
+                        level.setBlock(pos, newState, 0);
+                    } catch (Exception e3) {
+                        throw new RuntimeException("All block replacement methods failed for " + pos, e3);
+                    }
+                }
+            } else {
+                // It's a different exception, rethrow it
+                throw e;
+            }
         }
     }
 }
