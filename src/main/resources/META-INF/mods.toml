@@ -8,13 +8,13 @@
 modLoader="javafml" #mandatory
 
 # A version range to match for said mod loader - for regular FML @Mod it will be the forge version
-loaderVersion="[40,)" #mandatory (40 is current forge version)
+loaderVersion="[40,)" #mandatory
 
-# The license for your mod. This is mandatory and allows for easier comprehension of your redistributive properties.
+# The license for your mod. This is mandatory metadata and allows for easier comprehension of your redistributive properties.
 license="All Rights Reserved"
 
 # A URL to refer people to when problems occur with this mod
-#issueTrackerURL="http://my.issue.tracker/" #optional
+issueTrackerURL="https://github.com/your-username/blockscanner/issues"
 
 # A list of mods - how many allowed here is determined by the individual mod loader
 [[mods]] #mandatory
@@ -26,27 +26,26 @@ modId="blockscanner" #mandatory
 version="1.0.0" #mandatory
 
 # A display name for the mod
-displayName="Block Scanner" #mandatory
+displayName="BlockScanner" #mandatory
 
-# A URL to query for updates for this mod. See the JSON update specification <here>
-#updateJSONURL="http://myurl.me/" #optional
+# A URL to query for updates for this mod. See the JSON update specification https://docs.minecraftforge.net/en/latest/misc/updatechecker/
+#updateJSONURL="https://change.me.example.invalid/updates.json"
 
 # A URL for the "homepage" for this mod, displayed in the mod UI
-#displayURL="http://example.com/" #optional
+#displayURL="https://github.com/your-username/blockscanner"
 
 # A file name (in the root of the mod JAR) containing a logo for display
-#logoFile="blockscanner.png" #optional
+#logoFile="blockscanner.png"
 
 # A text field displayed in the mod UI
 credits="Thanks to Forge and Minecraft modding community" #optional
 
 # A text field displayed in the mod UI
-authors="BlockScanner Team" #optional
+authors="Your Name"
 
 # The description text for the mod (multi line!) (#mandatory)
 description='''
-A tool for scanning and replacing modded blocks in a Minecraft world.
-This is very useful for world migration and fixing broken mods.
+BlockScanner is a utility mod to find and replace blocks from removed mods.
 '''
 
 # A dependency - use the . to indicate dependency for a specific modid. Dependencies are optional.

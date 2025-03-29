@@ -47,6 +47,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.HashMap; // Add the missing import for HashMap
 
 @Mod.EventBusSubscriber
 public class ServerCommands {
@@ -58,12 +59,14 @@ public class ServerCommands {
     
     @SubscribeEvent
     public static void onRegisterCommands(RegisterCommandsEvent event) {
+        LOGGER.info("Registering BlockScanner commands...");
         CommandDispatcher<CommandSourceStack> dispatcher = event.getDispatcher();
 
         // Register /blockscanner command
         dispatcher.register(
             Commands.literal("blockscanner")
-                .requires(source -> source.hasPermission(2)) // Require op permission level 2
+                // Change permission level to 0 so anyone can use basic commands
+                .requires(source -> source.hasPermission(0)) 
                 .then(Commands.literal("scan")
                     .then(Commands.argument("radius", IntegerArgumentType.integer(1, 256))
                         .executes(context -> scanArea(context, IntegerArgumentType.getInteger(context, "radius"))))
@@ -136,7 +139,29 @@ public class ServerCommands {
                         })
                     )
                 )
+                .then(Commands.literal("addblock")
+                    .then(Commands.argument("from", StringArgumentType.string())
+                        .then(Commands.argument("to", StringArgumentType.string())
+                            .executes(context -> addBlockReplacement(
+                                context,
+                                StringArgumentType.getString(context, "from"),
+                                StringArgumentType.getString(context, "to"))))))
+                // Add commands for working with scanned blocks
+                .then(Commands.literal("listscanned")
+                    .executes(ServerCommands::listScannedBlocks))
+                .then(Commands.literal("generateconfig")
+                    .executes(ServerCommands::generateReplacementConfig))
         );
+        
+        // Also register with a shorter alias for convenience
+        dispatcher.register(
+            Commands.literal("bscan")
+                .requires(source -> source.hasPermission(0))
+                .redirect(dispatcher.getRoot().getChild("blockscanner"))
+        );
+        
+        LOGGER.info("BlockScanner commands registered successfully!");
+        System.out.println("[BlockScanner] Commands registered. Use /blockscanner or /bscan");
     }
 
     private static int scanArea(CommandContext<CommandSourceStack> context, int radius) throws CommandSyntaxException {
@@ -178,6 +203,11 @@ public class ServerCommands {
         // List the found block types
         for (String blockType : moddedBlockTypes) {
             source.sendSuccess(new TextComponent("- " + blockType), false);
+        }
+        
+        // After scanning, update message to show how to generate config
+        if (moddedBlockTypes.size() > 0) {
+            source.sendSuccess(new TextComponent("Run '/blockscanner generateconfig' to create a suggested replacement configuration"), true);
         }
         
         return moddedBlocksCount;
@@ -510,5 +540,99 @@ public class ServerCommands {
     // Overloaded version without tracking
     private static int processChunkWithReplacements(ServerLevel level, ChunkPos chunkPos) {
         return processChunkWithReplacements(level, chunkPos, null);
+    }
+    
+    private static int addBlockReplacement(CommandContext<CommandSourceStack> context, String fromBlockId, String toBlockId) {
+        CommandSourceStack source = context.getSource();
+        
+        // Validate block IDs
+        ResourceLocation fromLocation = ResourceLocation.tryParse(fromBlockId);
+        ResourceLocation toLocation = ResourceLocation.tryParse(toBlockId);
+        
+        if (fromLocation == null || toLocation == null) {
+            source.sendFailure(new TextComponent("Invalid block ID format. Use modid:blockname"));
+            return 0;
+        }
+        
+        // Verify the blocks exist
+        Block fromBlock = ForgeRegistries.BLOCKS.getValue(fromLocation);
+        Block toBlock = ForgeRegistries.BLOCKS.getValue(toLocation);
+        
+        if (fromBlock == null || toBlock == null) {
+            source.sendFailure(new TextComponent("One or both blocks don't exist in the game"));
+            return 0;
+        }
+        
+        // Add to config
+        boolean success = ConfigLoader.addBlockReplacement(fromBlockId, toBlockId);
+        
+        if (success) {
+            source.sendSuccess(new TextComponent("Added replacement: " + fromBlockId + " → " + toBlockId), true);
+            source.sendSuccess(new TextComponent("Configuration saved successfully"), true);
+            return 1;
+        } else {
+            source.sendFailure(new TextComponent("Failed to save configuration"));
+            return 0;
+        }
+    }
+    
+    /**
+     * List all scanned blocks in the console
+     */
+    private static int listScannedBlocks(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        Set<String> scannedBlocks = ScannedBlocksTracker.getScannedBlocks();
+        
+        if (scannedBlocks.isEmpty()) {
+            source.sendSuccess(new TextComponent("No modded blocks have been scanned yet"), true);
+            return 0;
+        }
+        
+        source.sendSuccess(new TextComponent("Found " + scannedBlocks.size() + " scanned block types:"), true);
+        
+        // Group blocks by mod ID for better organization
+        Map<String, List<String>> blocksByMod = new HashMap<>();
+        for (String blockId : scannedBlocks) {
+            String[] parts = blockId.split(":", 2);
+            if (parts.length == 2) {
+                String modId = parts[0];
+                blocksByMod.computeIfAbsent(modId, k -> new ArrayList<>()).add(blockId);
+            }
+        }
+        
+        // List blocks by mod
+        for (Map.Entry<String, List<String>> entry : blocksByMod.entrySet()) {
+            source.sendSuccess(new TextComponent("Mod: " + entry.getKey() + " (" + entry.getValue().size() + " blocks)"), true);
+            
+            // Limit displayed blocks to 10 per mod to avoid spam
+            int count = 0;
+            for (String blockId : entry.getValue()) {
+                if (count++ < 10) {
+                    source.sendSuccess(new TextComponent("  - " + blockId), false);
+                } else if (count == 11) {
+                    source.sendSuccess(new TextComponent("  - ... and " + (entry.getValue().size() - 10) + " more"), false);
+                    break;
+                }
+            }
+        }
+        
+        return scannedBlocks.size();
+    }
+    
+    /**
+     * Generate a suggested replacement configuration file
+     */
+    private static int generateReplacementConfig(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        
+        if (ScannedBlocksTracker.generateReplacementConfig()) {
+            source.sendSuccess(new TextComponent("Generated suggested replacement configuration based on scanned blocks"), true);
+            source.sendSuccess(new TextComponent("File saved to: config/blockscanner/suggested_replacements.json"), true);
+            source.sendSuccess(new TextComponent("Edit this file and rename it to block_replacements.json to use it"), true);
+            return 1;
+        } else {
+            source.sendFailure(new TextComponent("Failed to generate replacement configuration"));
+            return 0;
+        }
     }
 }

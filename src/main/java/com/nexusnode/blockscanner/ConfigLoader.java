@@ -18,17 +18,21 @@
 package com.nexusnode.blockscanner;
 
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.loading.FMLPaths;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.io.File;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.lang.reflect.Type;
-import java.nio.file.Files;
-import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -38,59 +42,64 @@ public class ConfigLoader {
 
     private static final Logger LOGGER = LogManager.getLogger("BlockScanner");
     public static Map<String, String> blockReplacements = new HashMap<>();
+    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+    private static File configFile = null;
 
     public static void init() {
         loadBlockReplacements();
     }
-
-    public static void loadBlockReplacements() {
-        // First check the configs directory
-        String configFilePath = "./configs/block_replacements.json";
-        File configDir = new File("./configs");
-        if (!configDir.exists()) {
-            configDir.mkdirs();
-            LOGGER.info("Created configs directory");
+    
+    /**
+     * Gets the configuration directory based on whether we're running on client or server
+     */
+    private static File getConfigDir() {
+        // Use Forge's path provider to get the proper config directory
+        File configDir = FMLPaths.CONFIGDIR.get().toFile();
+        LOGGER.info("Using config directory: {}", configDir.getAbsolutePath());
+        
+        // Create mod-specific subdirectory
+        File blockScannerConfigDir = new File(configDir, "blockscanner");
+        if (!blockScannerConfigDir.exists()) {
+            blockScannerConfigDir.mkdirs();
+            LOGGER.info("Created mod config directory at {}", blockScannerConfigDir.getAbsolutePath());
         }
         
-        // If config doesn't exist in configs, check resources
-        if (!Files.exists(Paths.get(configFilePath))) {
-            File resourceFile = new File("./src/main/resources/config/block_replacements.json");
-            if (resourceFile.exists()) {
-                // Try to copy the default config to the configs directory
-                try {
-                    Files.copy(resourceFile.toPath(), new File(configFilePath).toPath());
-                    LOGGER.info("Copied default config to configs directory");
-                } catch (IOException e) {
-                    LOGGER.error("Failed to copy default config: " + e.getMessage());
-                }
+        return blockScannerConfigDir;
+    }
+
+    public static void loadBlockReplacements() {
+        // Get the correct config directory 
+        File configDir = getConfigDir();
+        
+        // Define the config file in the proper location
+        configFile = new File(configDir, "block_replacements.json");
+        String configFilePath = configFile.getAbsolutePath();
+        
+        LOGGER.info("Attempting to load block replacements from {}", configFilePath);
+        
+        // If config doesn't exist, try to create it from embedded resources
+        if (!configFile.exists()) {
+            LOGGER.info("Config file not found at {}, attempting to create default", configFilePath);
+            
+            // Try creating a default config
+            if (createDefaultConfig(configFile)) {
+                LOGGER.info("Created default config file at {}", configFilePath);
             } else {
-                LOGGER.info("Default config not found at " + resourceFile.getAbsolutePath());
-                // Try to find it in the classpath (for when running from JAR)
-                try {
-                    var classLoader = ConfigLoader.class.getClassLoader();
-                    var resource = classLoader.getResourceAsStream("config/block_replacements.json");
-                    if (resource != null) {
-                        Files.copy(resource, new File(configFilePath).toPath());
-                        LOGGER.info("Extracted default config from JAR to configs directory");
-                    } else {
-                        LOGGER.error("Could not find default config in JAR");
-                    }
-                } catch (IOException e) {
-                    LOGGER.error("Failed to extract default config from JAR: " + e.getMessage());
-                }
+                LOGGER.error("Failed to create default config file. Using empty configuration.");
+                blockReplacements = new HashMap<>();
+                return;
             }
         }
         
-        // Now try to load the config, falling back to the resource path if needed
-        Gson gson = new Gson();
-        Type listType = new TypeToken<List<Map<String, String>>>(){}.getType();
-
+        // Now load the config
         try {
-            File file = new File(configFilePath);
-            if (file.exists()) {
-                List<Map<String, String>> replacementsList = gson.fromJson(new FileReader(file), listType);
-                blockReplacements = new HashMap<>();
-                
+            LOGGER.info("Loading replacements from {}", configFilePath);
+            Type listType = new TypeToken<List<Map<String, String>>>(){}.getType();
+            
+            List<Map<String, String>> replacementsList = GSON.fromJson(new FileReader(configFile), listType);
+            blockReplacements = new HashMap<>();
+            
+            if (replacementsList != null) {
                 for (Map<String, String> entry : replacementsList) {
                     String original = entry.get("original");
                     String replacement = entry.get("replacement");
@@ -101,13 +110,137 @@ public class ConfigLoader {
                     }
                 }
 
-                LOGGER.info("Loaded " + blockReplacements.size() + " block replacements from " + configFilePath);
+                LOGGER.info("Loaded {} block replacements from {}", blockReplacements.size(), configFilePath);
+                
+                // Log a few sample entries
+                int count = 0;
+                for (Map.Entry<String, String> entry : blockReplacements.entrySet()) {
+                    if (count++ < 5) {
+                        LOGGER.info("Sample replacement: {} -> {}", entry.getKey(), entry.getValue());
+                    } else {
+                        break;
+                    }
+                }
             } else {
+                LOGGER.warn("Empty or invalid replacements list in config file");
                 blockReplacements = new HashMap<>();
-                LOGGER.error("Config file not found: " + configFilePath);
+            }
+        } catch (Exception e) {
+            LOGGER.error("Failed to load block replacements from JSON: {}", e.getMessage(), e);
+            blockReplacements = new HashMap<>(); // Ensure we have an empty map at minimum
+        }
+    }
+    
+    /**
+     * Creates a default configuration file if one doesn't exist
+     */
+    private static boolean createDefaultConfig(File configFile) {
+        try {
+            // First try to find the default config in the resources
+            InputStream defaultConfigStream = ConfigLoader.class.getClassLoader()
+                    .getResourceAsStream("blockscanner/default_replacements.json");
+            
+            if (defaultConfigStream != null) {
+                // Read the default config
+                InputStreamReader reader = new InputStreamReader(defaultConfigStream);
+                Type listType = new TypeToken<List<Map<String, String>>>(){}.getType();
+                List<Map<String, String>> defaultConfig = GSON.fromJson(reader, listType);
+                
+                // Write it to the config file
+                try (FileWriter writer = new FileWriter(configFile)) {
+                    GSON.toJson(defaultConfig, writer);
+                }
+                
+                LOGGER.info("Created default replacement config from resources");
+                return true;
+            } else {
+                // If we can't find a built-in default, create a minimal example
+                List<Map<String, String>> exampleList = createExampleReplacements();
+                
+                try (FileWriter writer = new FileWriter(configFile)) {
+                    GSON.toJson(exampleList, writer);
+                }
+                
+                LOGGER.info("Created example config with basic entries");
+                return true;
             }
         } catch (IOException e) {
-            LOGGER.error("Failed to load block replacements from JSON: " + e.getMessage(), e);
+            LOGGER.error("Failed to create default config: {}", e.getMessage(), e);
+            return false;
+        }
+    }
+    
+    /**
+     * Creates a basic example replacement configuration
+     */
+    private static List<Map<String, String>> createExampleReplacements() {
+        List<Map<String, String>> exampleList = new ArrayList<>();
+        
+        // Example 1: A generic mod block
+        Map<String, String> example1 = new HashMap<>();
+        example1.put("original", "modid:example_block");
+        example1.put("replacement", "minecraft:stone");
+        exampleList.add(example1);
+        
+        // Example 2: Thermal Series copper ore
+        Map<String, String> example2 = new HashMap<>();
+        example2.put("original", "thermal:copper_ore");
+        example2.put("replacement", "minecraft:copper_ore");
+        exampleList.add(example2);
+        
+        // Example 3: Applied Energistics 2 quartz glass
+        Map<String, String> example3 = new HashMap<>();
+        example3.put("original", "ae2:quartz_glass");
+        example3.put("replacement", "minecraft:glass");
+        exampleList.add(example3);
+        
+        return exampleList;
+    }
+    
+    /**
+     * Adds a new block replacement to the configuration and saves it
+     */
+    public static boolean addBlockReplacement(String originalId, String replacementId) {
+        if (originalId == null || replacementId == null) {
+            return false;
+        }
+        
+        // Add to the in-memory map
+        blockReplacements.put(originalId, replacementId);
+        
+        // Now save the updated config
+        return saveReplacements();
+    }
+    
+    /**
+     * Saves the current block replacements to the config file
+     */
+    public static boolean saveReplacements() {
+        if (configFile == null) {
+            LOGGER.error("Cannot save replacements - config file not initialized");
+            return false;
+        }
+        
+        try {
+            // Convert the map to the list format used in the JSON
+            List<Map<String, String>> replacementsList = new ArrayList<>();
+            
+            for (Map.Entry<String, String> entry : blockReplacements.entrySet()) {
+                Map<String, String> jsonEntry = new HashMap<>();
+                jsonEntry.put("original", entry.getKey());
+                jsonEntry.put("replacement", entry.getValue());
+                replacementsList.add(jsonEntry);
+            }
+            
+            // Write to the config file
+            try (FileWriter writer = new FileWriter(configFile)) {
+                GSON.toJson(replacementsList, writer);
+                LOGGER.info("Saved {} block replacements to {}", replacementsList.size(), configFile.getAbsolutePath());
+                return true;
+            }
+        } catch (IOException e) {
+            LOGGER.error("Failed to save block replacements: {}", e.getMessage(), e);
+            return false;
         }
     }
 }

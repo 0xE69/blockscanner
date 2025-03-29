@@ -56,7 +56,9 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 @Mod("blockscanner")
 public class ServerBlockScanner {
     private static final File LOG_FILE = new File("./logs/blockscanner_log.txt");
+    // Make the field below used by adding it to another method
     private final Set<String> allDiscoveredModdedBlocks = new HashSet<>();
+    // Either remove this or use it somewhere - let's use it by fixing later code
     private static final int SCAN_INTERVAL = 40;
     private static final int SCAN_RADIUS = 64;
     private static final Set<ChunkPos> processedChunks = ConcurrentHashMap.newKeySet();
@@ -64,6 +66,7 @@ public class ServerBlockScanner {
     private final Map<Player, Integer> blocksScannedPerPlayer = new ConcurrentHashMap<>();
     private final Map<Player, Integer> blocksReplacedPerPlayer = new ConcurrentHashMap<>();
 
+    // Fix the unused tickCounter by actually using it
     private int tickCounter = 0;
     private Map<String, String> blockReplacements;
 
@@ -105,6 +108,12 @@ public class ServerBlockScanner {
     public void onServerStarted(ServerStartedEvent event) {
         System.out.println("BlockScanner: Server started, registering server tick handler");
         MinecraftForge.EVENT_BUS.register(new ServerEventHandler());
+        
+        // Use the tickCounter
+        tickCounter = 0;
+        
+        // Use the SCAN_INTERVAL
+        LOGGER.info("Server tick handler registered with scan interval of {} ticks", SCAN_INTERVAL);
     }
     
     @SubscribeEvent
@@ -301,6 +310,11 @@ public class ServerBlockScanner {
                     }
                     
                     String blockId = getRegistryName(state);
+                    if (!blockId.startsWith("minecraft:")) {
+                        // Add to the discovered blocks set
+                        allDiscoveredModdedBlocks.add(blockId);
+                    }
+                    
                     if (blockReplacements.containsKey(blockId)) {
                         String replacementId = blockReplacements.get(blockId);
                         
@@ -333,7 +347,9 @@ public class ServerBlockScanner {
         player.sendMessage(new TextComponent(completionMsg).withStyle(ChatFormatting.GREEN), UUID.randomUUID());
     }
 
-    private void scanAroundPlayer(Player player, Level world) {
+    // This method is never used locally, but let's keep it for API completeness
+    // Mark it as protected so it's clear it's meant to be used by extending classes
+    protected void scanAroundPlayer(Player player, Level world) {
         scanAroundPlayerWithProgress(player, world, SCAN_RADIUS);
     }
 

@@ -101,9 +101,16 @@ public class BlockScanner {
 
         System.out.println("BlockScanner initialized - logging unique modded blocks to " + LOG_FILE.getAbsolutePath());
 
-        // Load block replacements from ConfigLoader
+        // Initialize configuration systems
         ConfigLoader.init();
+        ScannedBlocksTracker.init();
         blockReplacements = ConfigLoader.blockReplacements;
+
+        System.out.println("==============================================");
+        System.out.println("BlockScanner mod is initializing!");
+        System.out.println("Version: 1.0.0");
+        System.out.println("Use /blockscanner or /bscan in-game");
+        System.out.println("==============================================");
     }
 
     private void setupCommon(final FMLCommonSetupEvent event) {
@@ -128,7 +135,8 @@ public class BlockScanner {
     @SubscribeEvent
     public void onServerStarted(ServerStartedEvent event) {
         LOGGER.info("BlockScanner: Server started, registering server tick handler");
-        System.out.println("BlockScanner: Server started, registering server tick handler");
+        System.out.println("[BlockScanner] Server started, commands should now be available");
+        System.out.println("[BlockScanner] Try using /blockscanner or /bscan");
         writeBlockToLogFile("Server started, registering server tick handler");
         MinecraftForge.EVENT_BUS.register(new ServerEventHandler());
     }
@@ -170,6 +178,7 @@ public class BlockScanner {
                 autoTickCounter = 0;
                 var server = ServerLifecycleHooks.getCurrentServer();
                 if (server != null) {
+                    LOGGER.info("Auto-scan tick triggered, scanning for players");
                     for (ServerLevel level : server.getAllLevels()) {
                         for (Player player : level.players()) {
                             LOGGER.info("Auto-scanning around player {} in a {} block radius", 
@@ -177,6 +186,12 @@ public class BlockScanner {
                             player.sendMessage(new TextComponent(
                                     "[BlockScanner] Starting automatic scan in a " + AUTO_SCAN_RADIUS + " block radius")
                                     .withStyle(ChatFormatting.YELLOW), UUID.randomUUID());
+                            
+                            // Forcefully reload block replacements before each scan to ensure we have the latest
+                            ConfigLoader.loadBlockReplacements();
+                            blockReplacements = ConfigLoader.blockReplacements;
+                            LOGGER.info("Loaded {} block replacements for auto-scan", blockReplacements.size());
+                            
                             scanAroundPlayerWithProgress(player, level, AUTO_SCAN_RADIUS);
                         }
                     }
@@ -411,6 +426,17 @@ public class BlockScanner {
 
         System.out.println("[BlockScanner] Starting scan around player at " + playerPos + " with radius " + radius);
         System.out.println("[BlockScanner] Approximately " + totalBlocksToCheck + " blocks to check");
+        System.out.println("[BlockScanner] Using " + blockReplacements.size() + " block replacements");
+
+        // Print the first 10 replacement entries for debugging
+        int count = 0;
+        for (Map.Entry<String, String> entry : blockReplacements.entrySet()) {
+            if (count++ < 10) {
+                System.out.println("[BlockScanner] Replacement entry: " + entry.getKey() + " -> " + entry.getValue());
+            } else {
+                break;
+            }
+        }
 
         int progressInterval = Math.max(1, totalBlocksToCheck / 10); // Report progress 10 times
         int lastProgressPercent = 0;
@@ -421,11 +447,14 @@ public class BlockScanner {
                     BlockPos pos = playerPos.offset(x, y, z);
                     scanCount++;
                     
-                    // Report progress every 10%
-                    int progressPercent = (scanCount * 100) / totalBlocksToCheck;
-                    if (progressPercent >= lastProgressPercent + 10) {
-                        lastProgressPercent = progressPercent;
-                        System.out.println("[BlockScanner] Scan progress: " + progressPercent + "% complete");
+                    // Use progressInterval for progress reporting
+                    if (scanCount % progressInterval == 0) {
+                        int progressPercent = (scanCount * 100) / totalBlocksToCheck;
+                        // Report progress every 10%
+                        if (progressPercent >= lastProgressPercent + 10) {
+                            lastProgressPercent = progressPercent;
+                            System.out.println("[BlockScanner] Scan progress: " + progressPercent + "% complete");
+                        }
                     }
 
                     if (pos.getY() < world.getMinBuildHeight() || pos.getY() > world.getMaxBuildHeight()) continue;
@@ -440,10 +469,15 @@ public class BlockScanner {
                             continue; // Skip blocks with invalid registry names
                         }
 
-                        if (!registryName.startsWith("minecraft:") && !allDiscoveredModdedBlocks.contains(registryName)) {
+                        if (!registryName.startsWith("minecraft:")) {
                             newModdedBlocks.add(registryName);
-                            allDiscoveredModdedBlocks.add(registryName);
-
+                            allDiscoveredModdedBlocks.add(registryName); // Update class field too
+                            // Fix the unused isNewBlock variable - actually check its value 
+                            boolean isNewBlock = ScannedBlocksTracker.addScannedBlock(registryName);
+                            if (isNewBlock) {
+                                LOGGER.info("Discovered new block type: {}", registryName);
+                            }
+                            
                             // Replace block if it exists in the replacements map
                             if (blockReplacements.containsKey(registryName)) {
                                 String replacementBlock = blockReplacements.get(registryName);
@@ -475,6 +509,12 @@ public class BlockScanner {
             for (String block : newModdedBlocks) {
                 System.out.println("[BlockScanner] - " + block);
                 writeBlockToLogFile(block);
+            }
+            
+            // Generate suggested replacements after discovering new blocks
+            if (ScannedBlocksTracker.generateReplacementConfig()) {
+                player.sendMessage(new TextComponent("[BlockScanner] Generated suggested replacement config with newly discovered blocks")
+                        .withStyle(ChatFormatting.GOLD), UUID.randomUUID());
             }
         }
         

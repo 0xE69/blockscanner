@@ -1,0 +1,42 @@
+[
+  {
+    "original": "tconstruct:clear_glass",
+    "replacement": "minecraft:glass"
+  },
+  {
+    "original": "tconstruct:seared_stone",
+    "replacement": "minecraft:deepslate"
+  },
+  {
+    "original": "ae2:quartz_block",
+    "replacement": "minecraft:quartz_block"
+  },
+  {
+    "original": "ae2:quartz_glass",
+    "replacement": "minecraft:glass"
+  },
+  {
+    "original": "ae2:cable_bus",
+    "replacement": "minecraft:redstone_wire"
+  },
+  {
+    "original": "thermal:copper_ore",
+    "replacement": "minecraft:copper_ore"
+  },
+  {
+    "original": "thermal:tin_ore",
+    "replacement": "minecraft:iron_ore"
+  },
+  {
+    "original": "thermal:lead_ore",
+    "replacement": "minecraft:iron_ore"
+  },
+  {
+    "original": "thermal:silver_ore",
+    "replacement": "minecraft:iron_ore"
+  },
+  {
+    "original": "mekanism:block_steel",
+    "replacement": "minecraft:iron_block"
+  }
+]
