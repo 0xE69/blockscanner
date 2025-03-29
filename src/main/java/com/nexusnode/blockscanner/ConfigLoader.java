@@ -33,6 +33,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -44,6 +45,10 @@ public class ConfigLoader {
     public static Map<String, String> blockReplacements = new HashMap<>();
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static File configFile = null;
+
+    // Add a cache timestamp to track config freshness
+    private static long lastConfigLoadTime = 0;
+    private static final long CONFIG_CACHE_DURATION = 5000; // 5 seconds cache
 
     public static void init() {
         loadBlockReplacements();
@@ -67,7 +72,19 @@ public class ConfigLoader {
         return blockScannerConfigDir;
     }
 
+    /**
+     * Load block replacements with caching to improve performance during batch operations
+     */
     public static void loadBlockReplacements() {
+        long currentTime = System.currentTimeMillis();
+        
+        // If config was recently loaded and the file hasn't changed, use the cached version
+        if (currentTime - lastConfigLoadTime < CONFIG_CACHE_DURATION && configFile != null && 
+            configFile.exists() && configFile.lastModified() < lastConfigLoadTime) {
+            LOGGER.debug("Using cached block replacements, age: {} ms", (currentTime - lastConfigLoadTime));
+            return;
+        }
+        
         // Get the correct config directory 
         File configDir = getConfigDir();
         
@@ -75,13 +92,12 @@ public class ConfigLoader {
         configFile = new File(configDir, "block_replacements.json");
         String configFilePath = configFile.getAbsolutePath();
         
-        LOGGER.info("Attempting to load block replacements from {}", configFilePath);
+        LOGGER.info("Loading block replacements from {}", configFilePath);
         
-        // If config doesn't exist, try to create it from embedded resources
+        // If config doesn't exist, create default
         if (!configFile.exists()) {
             LOGGER.info("Config file not found at {}, attempting to create default", configFilePath);
             
-            // Try creating a default config
             if (createDefaultConfig(configFile)) {
                 LOGGER.info("Created default config file at {}", configFilePath);
             } else {
@@ -96,34 +112,37 @@ public class ConfigLoader {
             LOGGER.info("Loading replacements from {}", configFilePath);
             Type listType = new TypeToken<List<Map<String, String>>>(){}.getType();
             
-            List<Map<String, String>> replacementsList = GSON.fromJson(new FileReader(configFile), listType);
-            blockReplacements = new HashMap<>();
-            
-            if (replacementsList != null) {
-                for (Map<String, String> entry : replacementsList) {
-                    String original = entry.get("original");
-                    String replacement = entry.get("replacement");
-                    if (original != null && replacement != null) {
-                        blockReplacements.put(original, replacement);
-                    } else {
-                        LOGGER.error("Invalid entry in block replacements: " + entry);
-                    }
+            // Synchronize access to avoid issues with concurrent modification
+            synchronized (GSON) {
+                List<Map<String, String>> replacementsList;
+                try (FileReader reader = new FileReader(configFile)) {
+                    replacementsList = GSON.fromJson(reader, listType);
                 }
-
-                LOGGER.info("Loaded {} block replacements from {}", blockReplacements.size(), configFilePath);
                 
-                // Log a few sample entries
-                int count = 0;
-                for (Map.Entry<String, String> entry : blockReplacements.entrySet()) {
-                    if (count++ < 5) {
-                        LOGGER.info("Sample replacement: {} -> {}", entry.getKey(), entry.getValue());
-                    } else {
-                        break;
+                Map<String, String> newReplacements = new HashMap<>();
+                
+                if (replacementsList != null) {
+                    for (Map<String, String> entry : replacementsList) {
+                        String original = entry.get("original");
+                        String replacement = entry.get("replacement");
+                        if (original != null && replacement != null) {
+                            newReplacements.put(original, replacement);
+                        } else {
+                            LOGGER.error("Invalid entry in block replacements: " + entry);
+                        }
                     }
+    
+                    LOGGER.info("Loaded {} block replacements from {}", newReplacements.size(), configFilePath);
+                    
+                    // Update the shared map in a thread-safe manner
+                    blockReplacements = Collections.unmodifiableMap(newReplacements);
+                    
+                    // Update cache timestamp
+                    lastConfigLoadTime = System.currentTimeMillis();
+                } else {
+                    LOGGER.warn("Empty or invalid replacements list in config file");
+                    blockReplacements = new HashMap<>();
                 }
-            } else {
-                LOGGER.warn("Empty or invalid replacements list in config file");
-                blockReplacements = new HashMap<>();
             }
         } catch (Exception e) {
             LOGGER.error("Failed to load block replacements from JSON: {}", e.getMessage(), e);

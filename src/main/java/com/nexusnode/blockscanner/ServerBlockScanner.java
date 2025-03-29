@@ -28,6 +28,8 @@ import net.minecraft.network.chat.TextComponent;
 import net.minecraft.ChatFormatting;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.chunk.LevelChunk;
+import net.minecraft.world.level.chunk.LevelChunkSection;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.server.ServerStartedEvent;
 import net.minecraftforge.event.server.ServerStartingEvent;
@@ -52,6 +54,11 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.ArrayList;
+import java.util.List;
 
 @Mod("blockscanner")
 public class ServerBlockScanner {
@@ -109,8 +116,9 @@ public class ServerBlockScanner {
         System.out.println("BlockScanner: Server started, registering server tick handler");
         MinecraftForge.EVENT_BUS.register(new ServerEventHandler());
         
-        // Use the tickCounter
+        // Use the tickCounter to track startup time
         tickCounter = 0;
+        LOGGER.info("Server started in {} ms", System.currentTimeMillis());
         
         // Use the SCAN_INTERVAL
         LOGGER.info("Server tick handler registered with scan interval of {} ticks", SCAN_INTERVAL);
@@ -141,6 +149,16 @@ public class ServerBlockScanner {
         private int totalBlocksScanned = 0;
         private int totalBlocksReplaced = 0;
         
+        // Add a thread pool for parallel processing
+        private final ExecutorService chunkProcessorPool = Executors.newFixedThreadPool(
+            Math.max(2, Runtime.getRuntime().availableProcessors() / 2),
+            r -> {
+                Thread t = new Thread(r, "BlockScanner-Worker");
+                t.setDaemon(true);
+                return t;
+            }
+        );
+        
         @SubscribeEvent
         public void onServerTick(TickEvent.ServerTickEvent event) {
             if (event.phase != TickEvent.Phase.END) return;
@@ -159,83 +177,102 @@ public class ServerBlockScanner {
         }
         
         private void processQueuedChunks() {
-            int processedThisTick = 0;
-            final int MAX_CHUNKS_PER_TICK = 5; // Limit chunks per tick to avoid lag
+            int maxChunksPerTick = 10; // Process more chunks per tick
+            List<Future<ProcessingResult>> futures = new ArrayList<>();
             
-            while (processedThisTick < MAX_CHUNKS_PER_TICK && !chunksToProcess.isEmpty()) {
+            // Submit chunks to executor service for parallel processing
+            for (int i = 0; i < maxChunksPerTick && !chunksToProcess.isEmpty(); i++) {
                 ChunkPos chunkPos = chunksToProcess.poll();
-                ServerLevel level = chunkWorldMap.get(chunkPos);
+                if (chunkPos == null) break;
                 
+                ServerLevel level = chunkWorldMap.get(chunkPos);
                 if (level != null) {
-                    LOGGER.info("Processing chunk at {}", chunkPos);
-                    processChunk(level, chunkPos);
-                    processedThisTick++;
+                    futures.add(chunkProcessorPool.submit(() -> {
+                        int blocksReplaced = processChunk(level, chunkPos);
+                        return new ProcessingResult(chunkPos, blocksReplaced);
+                    }));
                 }
                 
-                // Remove from map after processing
+                // Remove from map to avoid memory leaks
                 chunkWorldMap.remove(chunkPos);
             }
             
-            if (processedThisTick > 0) {
-                LOGGER.info("Processed {} chunks this tick", processedThisTick);
+            // Collect results
+            for (Future<ProcessingResult> future : futures) {
+                try {
+                    ProcessingResult result = future.get();
+                    if (result.blocksReplaced > 0) {
+                        LOGGER.info("Processed chunk at {} - replaced {} blocks", 
+                                result.chunkPos, result.blocksReplaced);
+                        totalBlocksReplaced += result.blocksReplaced;
+                    }
+                } catch (Exception e) {
+                    LOGGER.error("Error waiting for chunk processing: {}", e.getMessage());
+                }
             }
         }
         
-        public void queueChunkForProcessing(ServerLevel level, ChunkPos pos) {
-            if (!chunksToProcess.contains(pos)) {
-                chunksToProcess.add(pos);
-                chunkWorldMap.put(pos, level);
-                LOGGER.debug("Added chunk at {} to processing queue", pos);
+        // Helper class to track results
+        private static class ProcessingResult {
+            final ChunkPos chunkPos;
+            final int blocksReplaced;
+            
+            ProcessingResult(ChunkPos chunkPos, int blocksReplaced) {
+                this.chunkPos = chunkPos;
+                this.blocksReplaced = blocksReplaced;
             }
         }
         
-        private void processChunk(ServerLevel level, ChunkPos chunkPos) {
-            int minX = chunkPos.getMinBlockX();
-            int minZ = chunkPos.getMinBlockZ();
-            int maxX = chunkPos.getMaxBlockX();
-            int maxZ = chunkPos.getMaxBlockZ();
-            int blocksScanned = 0;
+        // Optimized chunk processing method
+        private int processChunk(ServerLevel level, ChunkPos chunkPos) {
             int blocksReplaced = 0;
             
-            for (int x = minX; x <= maxX; x++) {
-                for (int z = minZ; z <= maxZ; z++) {
-                    for (int y = level.getMinBuildHeight(); y < level.getMaxBuildHeight(); y++) {
-                        BlockPos pos = new BlockPos(x, y, z);
-                        BlockState state = level.getBlockState(pos);
-                        blocksScanned++;
-                        
-                        String blockId = getRegistryName(state);
-                        if (blockReplacements.containsKey(blockId)) {
-                            String replacementId = blockReplacements.get(blockId);
-                            LOGGER.debug("Found block to replace: {} with {}", blockId, replacementId);
-                            
-                            try {
-                                String[] parts = replacementId.split(":");
-                                if (parts.length == 2) {
-                                    ResourceLocation replaceRL = new ResourceLocation(parts[0], parts[1]);
-                                    Block replaceBlock = ForgeRegistries.BLOCKS.getValue(replaceRL);
+            try {
+                LevelChunk chunk = level.getChunk(chunkPos.x, chunkPos.z);
+                
+                // Only process non-empty sections
+                for (LevelChunkSection section : chunk.getSections()) {
+                    if (section == null || section.hasOnlyAir()) continue;
+                    
+                    int yStart = section.bottomBlockY();
+                    int yEnd = yStart + 16;
+                    
+                    for (int x = 0; x < 16; x++) {
+                        for (int z = 0; z < 16; z++) {
+                            for (int y = yStart; y < yEnd; y++) {
+                                BlockPos pos = new BlockPos(chunkPos.x * 16 + x, y, chunkPos.z * 16 + z);
+                                BlockState state = level.getBlockState(pos);
+                                totalBlocksScanned++;
+                                
+                                String blockId = getRegistryName(state);
+                                if (blockReplacements.containsKey(blockId)) {
+                                    String replacementId = blockReplacements.get(blockId);
                                     
-                                    if (replaceBlock != null) {
-                                        safelyReplaceBlock(level, pos, replaceBlock.defaultBlockState());
-                                        blocksReplaced++;
-                                        LOGGER.info("Replaced {} with {} at {}", blockId, replacementId, pos);
+                                    try {
+                                        String[] parts = replacementId.split(":");
+                                        if (parts.length == 2) {
+                                            ResourceLocation replaceRL = new ResourceLocation(parts[0], parts[1]);
+                                            Block replaceBlock = ForgeRegistries.BLOCKS.getValue(replaceRL);
+                                            
+                                            if (replaceBlock != null) {
+                                                // Use our safely replace method instead
+                                                safelyReplaceBlock(level, pos, replaceBlock.defaultBlockState());
+                                                blocksReplaced++;
+                                            }
+                                        }
+                                    } catch (Exception e) {
+                                        LOGGER.debug("Failed to replace block at {}: {}", pos, e.getMessage());
                                     }
                                 }
-                            } catch (Exception e) {
-                                LOGGER.error("Failed to replace block at {}: {}", pos, e.getMessage());
                             }
                         }
                     }
                 }
+            } catch (Exception e) {
+                LOGGER.error("Error processing chunk at {}: {}", chunkPos, e.getMessage());
             }
             
-            totalBlocksScanned += blocksScanned;
-            totalBlocksReplaced += blocksReplaced;
-            
-            if (blocksReplaced > 0) {
-                LOGGER.info("Chunk processed: scanned {} blocks, replaced {} blocks", 
-                        blocksScanned, blocksReplaced);
-            }
+            return blocksReplaced;
         }
         
         private void safelyReplaceBlock(ServerLevel level, BlockPos pos, BlockState newState) {

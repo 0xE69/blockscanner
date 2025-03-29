@@ -46,6 +46,13 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.HashSet;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ExecutionException;
+import net.minecraft.world.level.chunk.LevelChunk;
+import net.minecraft.world.level.chunk.LevelChunkSection;
 
 @Mod.EventBusSubscriber
 public class ServerCommands {
@@ -456,70 +463,101 @@ public class ServerCommands {
     private static void startProcessingThread(ServerLevel level) {
         new Thread(() -> {
             try {
+                // Use processedChunks to track progress
                 int processedChunks = 0;
                 long lastProgressUpdate = System.currentTimeMillis();
                 int lastTotalBlocksReplaced = 0;
                 
+                // Use a larger thread pool for processing chunks in parallel
+                final int THREADS = Math.max(2, Runtime.getRuntime().availableProcessors() / 2);
+                ExecutorService executor = Executors.newFixedThreadPool(THREADS, 
+                        r -> {
+                            Thread t = new Thread(r, "BlockScanner-ChunkWorker");
+                            t.setDaemon(true);
+                            return t;
+                        });
+                
                 while (replacementActive.get() && !pendingChunks.isEmpty()) {
-                    // Take up to 5 chunks at a time
+                    // Take up to 20 chunks at a time for better batching
                     Set<ChunkPos> batchChunks = new HashSet<>();
-                    pendingChunks.stream().limit(5).forEach(chunk -> {
+                    pendingChunks.stream().limit(20).forEach(chunk -> {
                         batchChunks.add(chunk);
                         pendingChunks.remove(chunk);
                     });
                     
                     if (batchChunks.isEmpty()) break;
                     
+                    // Process chunks in parallel
+                    List<Future<Integer>> futures = new ArrayList<>();
                     for (ChunkPos chunkPos : batchChunks) {
                         if (!replacementActive.get()) break;
                         
-                        // Process this chunk
-                        int replacements = processChunkWithReplacements(level, chunkPos);
-                        totalBlocksReplaced += replacements;
-                        processedChunks++;
-                        
-                        // Update progress every PROGRESS_UPDATE_INTERVAL milliseconds
-                        long currentTime = System.currentTimeMillis();
-                        if (currentTime - lastProgressUpdate >= PROGRESS_UPDATE_INTERVAL) {
-                            int remainingChunks = pendingChunks.size();
-                            int completedChunks = totalChunksToProcess - remainingChunks;
-                            float percentComplete = (float) completedChunks / totalChunksToProcess * 100;
-                            
-                            // Calculate blocks replaced since last update
-                            int newBlocksReplaced = totalBlocksReplaced - lastTotalBlocksReplaced;
-                            lastTotalBlocksReplaced = totalBlocksReplaced;
-                            
-                            // Create progress bar
-                            int barLength = 30;
-                            int filledLength = (int) (barLength * completedChunks / totalChunksToProcess);
-                            StringBuilder progressBar = new StringBuilder("[");
-                            for (int i = 0; i < barLength; i++) {
-                                if (i < filledLength) {
-                                    progressBar.append("=");
-                                } else if (i == filledLength) {
-                                    progressBar.append(">");
-                                } else {
-                                    progressBar.append(" ");
-                                }
-                            }
-                            progressBar.append("]");
-                            
-                            String progressMessage = String.format(
-                                "[BlockScanner] Progress: %s %.1f%% | %d/%d chunks | %d blocks replaced total | %d new blocks replaced",
-                                progressBar, percentComplete, completedChunks, totalChunksToProcess, 
-                                totalBlocksReplaced, newBlocksReplaced
-                            );
-                            
-                            System.out.println(progressMessage);
-                            LOGGER.info(progressMessage);
-                            
-                            // Update the timestamp for next progress update
-                            lastProgressUpdate = currentTime;
-                        }
-                        
-                        // Don't overload the server - sleep a bit between chunks
-                        Thread.sleep(50);
+                        // Submit chunk processing task to thread pool
+                        futures.add(executor.submit(() -> processChunkWithReplacements(level, chunkPos)));
                     }
+                    
+                    // Collect results
+                    for (Future<Integer> future : futures) {
+                        try {
+                            int replacements = future.get();
+                            totalBlocksReplaced += replacements;
+                            processedChunks++; // Increment the counter we've declared
+                        } catch (InterruptedException | ExecutionException e) {
+                            LOGGER.error("Error processing chunk: " + e.getMessage());
+                        }
+                    }
+                    
+                    // Update progress every PROGRESS_UPDATE_INTERVAL milliseconds
+                    long currentTime = System.currentTimeMillis();
+                    if (currentTime - lastProgressUpdate >= PROGRESS_UPDATE_INTERVAL) {
+                        // Use processedChunks in our log message
+                        LOGGER.debug("Processed {} chunks so far with {} blocks replaced", 
+                            processedChunks, totalBlocksReplaced);
+                        
+                        // Calculate blocks replaced since last update
+                        int newBlocksReplaced = totalBlocksReplaced - lastTotalBlocksReplaced;
+                        lastTotalBlocksReplaced = totalBlocksReplaced;
+                        
+                        // Create progress bar with processing speed info
+                        int barLength = 30;
+                        int filledLength = (int) (barLength * (totalChunksToProcess - pendingChunks.size()) / totalChunksToProcess);
+                        StringBuilder progressBar = new StringBuilder("[");
+                        for (int i = 0; i < barLength; i++) {
+                            if (i < filledLength) {
+                                progressBar.append("=");
+                            } else if (i == filledLength) {
+                                progressBar.append(">");
+                            } else {
+                                progressBar.append(" ");
+                            }
+                        }
+                        progressBar.append("]");
+                        
+                        long timeElapsed = currentTime - lastProgressUpdate;
+                        double chunksPerSecond = (double) batchChunks.size() / (timeElapsed / 1000.0);
+                        
+                        String progressMessage = String.format(
+                            "[BlockScanner] Progress: %s %.1f%% | %d/%d chunks (%.1f chunks/s) | %d blocks replaced total | %d new blocks replaced",
+                            progressBar, (float) (totalChunksToProcess - pendingChunks.size()) / totalChunksToProcess * 100, 
+                            totalChunksToProcess - pendingChunks.size(), totalChunksToProcess, 
+                            chunksPerSecond, totalBlocksReplaced, newBlocksReplaced
+                        );
+                        
+                        System.out.println(progressMessage);
+                        LOGGER.info(progressMessage);
+                        
+                        // Update the timestamp for next progress update
+                        lastProgressUpdate = currentTime;
+                    }
+                }
+                
+                // Shutdown executor
+                executor.shutdown();
+                try {
+                    // Wait for remaining tasks to complete
+                    executor.awaitTermination(30, TimeUnit.SECONDS);
+                } catch (InterruptedException e) {
+                    LOGGER.error("Executor shutdown interrupted", e);
                 }
                 
                 // Final progress update
@@ -532,9 +570,6 @@ public class ServerCommands {
                 System.out.println(completionMessage);
                 LOGGER.info(completionMessage);
                 
-                // Send a completion message to server console
-                System.out.println("[BlockScanner] Finished processing " + processedChunks + 
-                    " chunks with " + totalBlocksReplaced + " block replacements");
             } catch (Exception e) {
                 System.err.println("[BlockScanner] Error in background processing: " + e.getMessage());
                 e.printStackTrace();
@@ -570,43 +605,59 @@ public class ServerCommands {
         int replacementCount = 0;
         Map<String, String> blockReplacements = ConfigLoader.blockReplacements;
         
-        // Process each block in the chunk
-        for (int x = 0; x < 16; x++) {
-            for (int z = 0; z < 16; z++) {
-                for (int y = level.getMinBuildHeight(); y < level.getMaxBuildHeight(); y++) {
-                    BlockPos pos = new BlockPos(chunkPos.x * 16 + x, y, chunkPos.z * 16 + z);
-                    
-                    try {
-                        BlockState state = level.getBlockState(pos);
-                        String registryName = ForgeRegistries.BLOCKS.getKey(state.getBlock()).toString();
-                        
-                        // Skip vanilla blocks
-                        if (registryName.startsWith("minecraft:")) continue;
-                        
-                        // Replace block if it exists in the replacements map
-                        if (blockReplacements.containsKey(registryName)) {
-                            String replacementBlock = blockReplacements.get(registryName);
-                            ResourceLocation replacementBlockLocation = new ResourceLocation(replacementBlock);
-                            Block replacement = ForgeRegistries.BLOCKS.getValue(replacementBlockLocation);
+        // Improve chunk processing with better block iteration
+        try {
+            LevelChunk chunk = level.getChunk(chunkPos.x, chunkPos.z);
+            
+            // Process only loaded sections to skip empty areas
+            for (LevelChunkSection section : chunk.getSections()) {
+                if (section == null || section.isEmpty()) continue;
+                
+                int yStart = section.bottomBlockY();
+                int yEnd = yStart + 16;
+                
+                // Process each block in the section
+                for (int x = 0; x < 16; x++) {
+                    for (int z = 0; z < 16; z++) {
+                        for (int y = yStart; y < yEnd; y++) {
+                            BlockPos pos = new BlockPos(chunkPos.x * 16 + x, y, chunkPos.z * 16 + z);
                             
-                            if (replacement != null) {
-                                try {
-                                    // Use safer block replacement approach
-                                    safelyReplaceBlock(level, pos, replacement.defaultBlockState());
-                                    if (replacedBlocks != null) {
-                                        replacedBlocks.add(registryName + " -> " + replacementBlock);
+                            try {
+                                BlockState state = level.getBlockState(pos);
+                                String registryName = ForgeRegistries.BLOCKS.getKey(state.getBlock()).toString();
+                                
+                                // Skip vanilla blocks
+                                if (registryName.startsWith("minecraft:")) continue;
+                                
+                                // Replace block if it exists in the replacements map
+                                if (blockReplacements.containsKey(registryName)) {
+                                    String replacementBlock = blockReplacements.get(registryName);
+                                    ResourceLocation replacementBlockLocation = new ResourceLocation(replacementBlock);
+                                    Block replacement = ForgeRegistries.BLOCKS.getValue(replacementBlockLocation);
+                                    
+                                    if (replacement != null) {
+                                        try {
+                                            // Use safer block replacement approach
+                                            safelyReplaceBlock(level, pos, replacement.defaultBlockState());
+                                            if (replacedBlocks != null) {
+                                                replacedBlocks.add(registryName + " -> " + replacementBlock);
+                                            }
+                                            replacementCount++;
+                                        } catch (Exception e) {
+                                            LOGGER.warn("Error replacing block " + registryName + " at " + pos + ": " + e.getMessage(), e);
+                                        }
                                     }
-                                    replacementCount++;
-                                } catch (Exception e) {
-                                    LOGGER.warn("Error replacing block " + registryName + " at " + pos + ": " + e.getMessage(), e);
                                 }
+                            } catch (Exception e) {
+                                // Only log at debug level to avoid spamming the console
+                                LOGGER.debug("Error processing block at " + pos + ": " + e.getMessage());
                             }
                         }
-                    } catch (Exception e) {
-                        LOGGER.error("Error processing block at " + pos + ": " + e.getMessage());
                     }
                 }
             }
+        } catch (Exception e) {
+            LOGGER.error("Error processing chunk at " + chunkPos + ": " + e.getMessage(), e);
         }
         
         return replacementCount;
