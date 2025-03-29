@@ -1,3 +1,20 @@
+/*
+ * Crafting Dead
+ * Copyright (C) 2022  NexusNode LTD
+ *
+ * This Non-Commercial Software License Agreement (the "Agreement") is made between
+ * you (the "Licensee") and NEXUSNODE (BRAD HUNTER). (the "Licensor").
+ * By installing or otherwise using Crafting Dead (the "Software"), you agree to be
+ * bound by the terms and conditions of this Agreement as may be revised from time
+ * to time at Licensor's sole discretion.
+ *
+ * If you do not agree to the terms and conditions of this Agreement do not download,
+ * copy, reproduce or otherwise use any of the source code available online at any time.
+ *
+ * https://github.com/nexusnode/crafting-dead/blob/1.18.x/LICENSE.txt
+ *
+ * https://craftingdead.net/terms.php
+ */
 package com.nexusnode.blockscanner;
 
 import net.minecraft.client.Minecraft;
@@ -11,7 +28,7 @@ import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.registries.ForgeRegistries;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.TextComponent;
 import net.minecraft.ChatFormatting;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -149,7 +166,7 @@ public class ClientEventHandler {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player != null) {
             mc.player.displayClientMessage(
-                Component.literal("[BlockScanner] Starting scan of " + totalBlocks + 
+                new TextComponent("[BlockScanner] Starting scan of " + totalBlocks + 
                     " blocks in a " + radius + " block radius").withStyle(ChatFormatting.GREEN), 
                 false
             );
@@ -160,7 +177,7 @@ public class ClientEventHandler {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player != null) {
             mc.player.displayClientMessage(
-                Component.literal(String.format("[BlockScanner] Progress: %d%% (%d/%d blocks scanned)", 
+                new TextComponent(String.format("[BlockScanner] Progress: %d%% (%d/%d blocks scanned)", 
                     percentage, scanned, total)).withStyle(ChatFormatting.AQUA), 
                 false
             );
@@ -171,7 +188,7 @@ public class ClientEventHandler {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player != null) {
             mc.player.displayClientMessage(
-                Component.literal(String.format("[BlockScanner] Scan complete: scanned %d blocks, replaced %d blocks", 
+                new TextComponent(String.format("[BlockScanner] Scan complete: scanned %d blocks, replaced %d blocks", 
                     scanned, replaced)).withStyle(ChatFormatting.GREEN), 
                 true
             );

@@ -1,3 +1,20 @@
+/*
+ * Crafting Dead
+ * Copyright (C) 2022  NexusNode LTD
+ *
+ * This Non-Commercial Software License Agreement (the "Agreement") is made between
+ * you (the "Licensee") and NEXUSNODE (BRAD HUNTER). (the "Licensor").
+ * By installing or otherwise using Crafting Dead (the "Software"), you agree to be
+ * bound by the terms and conditions of this Agreement as may be revised from time
+ * to time at Licensor's sole discretion.
+ *
+ * If you do not agree to the terms and conditions of this Agreement do not download,
+ * copy, reproduce or otherwise use any of the source code available online at any time.
+ *
+ * https://github.com/nexusnode/crafting-dead/blob/1.18.x/LICENSE.txt
+ *
+ * https://craftingdead.net/terms.php
+ */
 package com.nexusnode.blockscanner;
 
 import net.minecraft.server.level.ServerLevel;
@@ -5,10 +22,10 @@ import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.entity.player.ServerPlayer;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.core.BlockPos;
-import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.ChatFormatting;
+import net.minecraft.network.chat.TextComponent;
+import net.minecraft.ChatFormatting;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.block.Block;
 import net.minecraftforge.common.MinecraftForge;
@@ -32,6 +49,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
@@ -233,7 +251,7 @@ public class ServerBlockScanner {
                 var server = ServerLifecycleHooks.getCurrentServer();
                 if (server != null) {
                     for (ServerPlayer player : server.getPlayerList().getPlayers()) {
-                        player.sendSystemMessage(Component.literal(message).withStyle(ChatFormatting.GOLD));
+                        player.sendMessage(new TextComponent(message).withStyle(ChatFormatting.GOLD), UUID.randomUUID());
                     }
                 }
             }
@@ -260,8 +278,8 @@ public class ServerBlockScanner {
                 player.getName().getString(), totalBlocks, radius);
         
         // Send starting message to player
-        player.sendSystemMessage(Component.literal("[BlockScanner] Starting scan of " + totalBlocks + 
-                " blocks in a " + radius + " block radius").withStyle(ChatFormatting.GREEN));
+        player.sendMessage(new TextComponent("[BlockScanner] Starting scan of " + totalBlocks + 
+                " blocks in a " + radius + " block radius").withStyle(ChatFormatting.GREEN), UUID.randomUUID());
         
         int scanned = 0;
         int replaced = 0;
@@ -279,7 +297,7 @@ public class ServerBlockScanner {
                         String progressMsg = String.format("[BlockScanner] Progress: %d%% (%d/%d blocks scanned)", 
                                 percentage, scanned, totalBlocks);
                         LOGGER.info(progressMsg);
-                        player.sendSystemMessage(Component.literal(progressMsg).withStyle(ChatFormatting.AQUA));
+                        player.sendMessage(new TextComponent(progressMsg).withStyle(ChatFormatting.AQUA), UUID.randomUUID());
                     }
                     
                     String blockId = getRegistryName(state);
@@ -312,7 +330,7 @@ public class ServerBlockScanner {
         String completionMsg = String.format("[BlockScanner] Scan complete: scanned %d blocks, replaced %d blocks", 
                 scanned, replaced);
         LOGGER.info(completionMsg);
-        player.sendSystemMessage(Component.literal(completionMsg).withStyle(ChatFormatting.GREEN));
+        player.sendMessage(new TextComponent(completionMsg).withStyle(ChatFormatting.GREEN), UUID.randomUUID());
     }
 
     private void scanAroundPlayer(Player player, Level world) {

@@ -25,6 +25,7 @@ import java.util.Date;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 import net.minecraft.client.Minecraft;
@@ -173,9 +174,9 @@ public class BlockScanner {
                         for (Player player : level.players()) {
                             LOGGER.info("Auto-scanning around player {} in a {} block radius", 
                                     player.getName().getString(), AUTO_SCAN_RADIUS);
-                            player.sendSystemMessage(new TextComponent(
+                            player.sendMessage(new TextComponent(
                                     "[BlockScanner] Starting automatic scan in a " + AUTO_SCAN_RADIUS + " block radius")
-                                    .withStyle(ChatFormatting.YELLOW));
+                                    .withStyle(ChatFormatting.YELLOW), UUID.randomUUID());
                             scanAroundPlayerWithProgress(player, level, AUTO_SCAN_RADIUS);
                         }
                     }
@@ -198,7 +199,7 @@ public class BlockScanner {
                 var server = ServerLifecycleHooks.getCurrentServer();
                 if (server != null) {
                     for (ServerPlayer player : server.getPlayerList().getPlayers()) {
-                        player.sendSystemMessage(new TextComponent(message).withStyle(ChatFormatting.GOLD));
+                        player.sendMessage(new TextComponent(message).withStyle(ChatFormatting.GOLD), UUID.randomUUID());
                     }
                 }
             }
@@ -478,8 +479,8 @@ public class BlockScanner {
         }
         
         // Send starting message to player
-        player.sendSystemMessage(new TextComponent("[BlockScanner] Starting scan of " + totalBlocksToCheck + 
-                " blocks in a " + radius + " block radius").withStyle(ChatFormatting.GREEN));
+        player.sendMessage(new TextComponent("[BlockScanner] Starting scan of " + totalBlocksToCheck + 
+                " blocks in a " + radius + " block radius").withStyle(ChatFormatting.GREEN), UUID.randomUUID());
         
         // Log progress periodically
         if (scanCount % 10000 == 0) {
@@ -487,14 +488,14 @@ public class BlockScanner {
             String progressMsg = String.format("[BlockScanner] Progress: %d%% (%d/%d blocks scanned)", 
                     percentage, scanCount, totalBlocksToCheck);
             LOGGER.info(progressMsg);
-            player.sendSystemMessage(new TextComponent(progressMsg).withStyle(ChatFormatting.AQUA));
+            player.sendMessage(new TextComponent(progressMsg).withStyle(ChatFormatting.AQUA), UUID.randomUUID());
         }
         
         // Send completion message
         String completionMsg = String.format("[BlockScanner] Scan complete: scanned %d blocks, replaced %d blocks", 
                 scanCount, blocksReplaced);
         LOGGER.info(completionMsg);
-        player.sendSystemMessage(new TextComponent(completionMsg).withStyle(ChatFormatting.GREEN));
+        player.sendMessage(new TextComponent(completionMsg).withStyle(ChatFormatting.GREEN), UUID.randomUUID());
     }
 
     private String getRegistryName(BlockState state) {
