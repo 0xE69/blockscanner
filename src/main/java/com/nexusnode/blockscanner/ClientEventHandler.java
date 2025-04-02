@@ -17,8 +17,17 @@
  */
 package com.nexusnode.blockscanner;
 
+import java.util.HashMap;
+import java.util.Map;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
+import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.TextComponent;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
@@ -27,14 +36,6 @@ import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.registries.ForgeRegistries;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.network.chat.TextComponent;
-import net.minecraft.ChatFormatting;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
-import java.util.HashMap;
-import java.util.Map;
 
 @OnlyIn(Dist.CLIENT)
 public class ClientEventHandler {
@@ -139,18 +140,28 @@ public class ClientEventHandler {
     
     private void safelyReplaceBlock(Level world, BlockPos pos, BlockState newState) {
         try {
+            // Get original state to preserve properties
+            BlockState oldState = world.getBlockState(pos);
+            BlockState stateToUse = preserveBlockProperties(oldState, newState);
+            
             // First try with standard replacement (flag 3 = update + notify)
-            world.setBlockAndUpdate(pos, newState);
+            world.setBlockAndUpdate(pos, stateToUse);
         } catch (Exception e) {
             if (e.getMessage() != null && e.getMessage().contains("updating neighbors")) {
                 LOGGER.info("Trying alternative block replacement method for " + pos + " due to neighbor update issue");
                 try {
+                    // Get original state again in case it changed
+                    BlockState oldState = world.getBlockState(pos);
+                    BlockState stateToUse = preserveBlockProperties(oldState, newState);
+                    
                     // Use the setBlock method with flag 2 (only notify, no updates to neighbors)
-                    world.setBlock(pos, newState, 2);
+                    world.setBlock(pos, stateToUse, 2);
                 } catch (Exception e2) {
                     // If that also fails, try with flag 0 (no updates at all)
                     try {
-                        world.setBlock(pos, newState, 0);
+                        BlockState oldState = world.getBlockState(pos);
+                        BlockState stateToUse = preserveBlockProperties(oldState, newState);
+                        world.setBlock(pos, stateToUse, 0);
                     } catch (Exception e3) {
                         throw new RuntimeException("All block replacement methods failed for " + pos, e3);
                     }
@@ -162,9 +173,73 @@ public class ClientEventHandler {
         }
     }
     
+    /**
+     * Attempts to copy properties from the old block state to the new one
+     * Preserves rotation, direction, and other common properties
+     */
+    private BlockState preserveBlockProperties(BlockState oldState, BlockState newState) {
+        BlockState result = newState;
+        
+        // Fix the collection type mismatch by using Collection instead of Set
+        java.util.Collection<net.minecraft.world.level.block.state.properties.Property<?>> oldProps = oldState.getProperties();
+        java.util.Collection<net.minecraft.world.level.block.state.properties.Property<?>> newProps = newState.getProperties();
+        
+        // Find properties that exist in both blocks
+        for (net.minecraft.world.level.block.state.properties.Property<?> oldProp : oldProps) {
+            String propName = oldProp.getName();
+            
+            // Common properties to preserve: facing, rotation, axis, etc.
+            boolean isImportantProperty = propName.equals("facing") || 
+                                         propName.equals("rotation") || 
+                                         propName.equals("axis") ||
+                                         propName.equals("half") ||
+                                         propName.equals("type") ||
+                                         propName.equals("waterlogged");
+            
+            // Log important properties for debugging
+            if (isImportantProperty) {
+                LOGGER.debug("Found important property to preserve: {} with value {}", 
+                    propName, oldState.getValue(oldProp));
+            }
+            
+            // Look for matching property in new block
+            for (net.minecraft.world.level.block.state.properties.Property<?> newProp : newProps) {
+                if (newProp.getName().equals(propName) && oldProp.getValueClass() == newProp.getValueClass()) {
+                    // Found matching property, try to copy the value
+                    result = copyProperty(oldState, result, oldProp, newProp);
+                }
+            }
+        }
+        
+        return result;
+    }
+
+    /**
+     * Copy a property value from old state to new state using generic types
+     */
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private <T extends Comparable<T>> BlockState copyProperty(
+            BlockState oldState, BlockState newState,
+            net.minecraft.world.level.block.state.properties.Property oldProp,
+            net.minecraft.world.level.block.state.properties.Property newProp) {
+        try {
+            T value = (T)oldState.getValue(oldProp);
+            // Check if the new property accepts this value
+            if (newProp.getPossibleValues().contains(value)) {
+                return newState.setValue((net.minecraft.world.level.block.state.properties.Property<T>)newProp, value);
+            }
+        } catch (Exception e) {
+            LOGGER.debug("Unable to copy property {} from {} to {}: {}", 
+                oldProp.getName(), oldState.getBlock().getRegistryName(), 
+                newState.getBlock().getRegistryName(), e.getMessage());
+        }
+        return newState;
+    }
+    
     public void showScanStartMessage(int radius, int totalBlocks) {
         Minecraft mc = Minecraft.getInstance();
-        if (mc.player != null) {
+        if (mc != null && mc.player != null && mc.player.isAlive()) {
+            // Fixed null safety check
             mc.player.displayClientMessage(
                 new TextComponent("[BlockScanner] Starting scan of " + totalBlocks + 
                     " blocks in a " + radius + " block radius").withStyle(ChatFormatting.GREEN), 
@@ -175,7 +250,8 @@ public class ClientEventHandler {
     
     public void showScanProgressMessage(int percentage, int scanned, int total) {
         Minecraft mc = Minecraft.getInstance();
-        if (mc.player != null) {
+        if (mc != null && mc.player != null && mc.player.isAlive()) {
+            // Fixed null safety check
             mc.player.displayClientMessage(
                 new TextComponent(String.format("[BlockScanner] Progress: %d%% (%d/%d blocks scanned)", 
                     percentage, scanned, total)).withStyle(ChatFormatting.AQUA), 
@@ -186,12 +262,16 @@ public class ClientEventHandler {
     
     public void showScanCompleteMessage(int scanned, int replaced) {
         Minecraft mc = Minecraft.getInstance();
-        if (mc.player != null) {
-            mc.player.displayClientMessage(
-                new TextComponent(String.format("[BlockScanner] Scan complete: scanned %d blocks, replaced %d blocks", 
-                    scanned, replaced)).withStyle(ChatFormatting.GREEN), 
-                true
-            );
+        if (mc != null && mc.player != null) {
+            // Ensure player is not null before accessing it
+            Player player = mc.player;
+            if (player != null && player.isAlive()) {
+                player.displayClientMessage(
+                    new TextComponent(String.format("[BlockScanner] Scan complete: scanned %d blocks, replaced %d blocks", 
+                        scanned, replaced)).withStyle(ChatFormatting.GREEN), 
+                    true
+                );
+            }
         }
     }
 }

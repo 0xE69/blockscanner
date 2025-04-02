@@ -1,4 +1,10 @@
 {
     "java.compile.nullAnalysis.mode": "automatic",
-    "CodeGPT.apiKey": "CodeGPT Plus Beta"
+    "CodeGPT.apiKey": "CodeGPT Plus Beta",
+    "cSpell.words": [
+        "GSON",
+        "NEXUSNODE",
+        "singleplayer"
+    ],
+    "java.configuration.updateBuildConfiguration": "interactive"
 }

@@ -28,11 +28,14 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
+import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
-import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.TextComponent;
-import net.minecraft.ChatFormatting;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
@@ -40,24 +43,21 @@ import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.TickEvent;
-import net.minecraftforge.event.world.ChunkEvent;
 import net.minecraftforge.event.server.ServerStartedEvent;
 import net.minecraftforge.event.server.ServerStartingEvent;
+import net.minecraftforge.event.world.ChunkEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
+import net.minecraftforge.fml.loading.FMLEnvironment;
 import net.minecraftforge.registries.ForgeRegistries;
 import net.minecraftforge.server.ServerLifecycleHooks;
-import net.minecraftforge.fml.loading.FMLEnvironment;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 @Mod("blockscanner")
 public class BlockScanner {
@@ -79,8 +79,9 @@ public class BlockScanner {
     public static boolean playerAutoScanEnabled = false;
 
     private static final Logger LOGGER = LogManager.getLogger("BlockScanner");
-    private int totalBlocksScanned = 0;
-    private int totalBlocksReplaced = 0;
+    // Fix the "can be final" warnings
+    private final int totalBlocksScanned = 0;
+    private final int totalBlocksReplaced = 0;
 
     public BlockScanner() {
         FMLJavaModLoadingContext.get().getModEventBus().addListener(this::setupCommon);
@@ -139,6 +140,42 @@ public class BlockScanner {
         System.out.println("[BlockScanner] Try using /blockscanner or /bscan");
         writeBlockToLogFile("Server started, registering server tick handler");
         MinecraftForge.EVENT_BUS.register(new ServerEventHandler());
+        
+        // Scan registries on server start
+        runInitialRegistryScan();
+    }
+
+    /**
+     * Run an initial registry scan on server start
+     */
+    private void runInitialRegistryScan() {
+        // Run in a separate thread to avoid blocking server startup
+        new Thread(() -> {
+            try {
+                LOGGER.info("Starting initial registry scan...");
+                System.out.println("[BlockScanner] Starting initial registry scan...");
+                
+                // Wait a few seconds to ensure everything is loaded
+                Thread.sleep(5000);
+                
+                // Run the scan
+                long startTime = System.currentTimeMillis();
+                boolean success = ModdedItemScanner.scanAndSaveRegistries();
+                long duration = System.currentTimeMillis() - startTime;
+                
+                if (success) {
+                    LOGGER.info("Initial registry scan complete in {} ms", duration);
+                    System.out.println(String.format("[BlockScanner] Initial registry scan complete in %.2f seconds", duration / 1000.0));
+                    System.out.println("[BlockScanner] Use '/blockscanner listmods' to see available mods");
+                } else {
+                    LOGGER.error("Failed to complete initial registry scan");
+                    System.err.println("[BlockScanner] Failed to complete initial registry scan");
+                }
+            } catch (Exception e) {
+                LOGGER.error("Error during initial registry scan: " + e.getMessage(), e);
+                System.err.println("[BlockScanner] Error during initial registry scan: " + e.getMessage());
+            }
+        }, "InitialRegistryScan-Thread").start();
     }
     
     @SubscribeEvent
@@ -278,14 +315,18 @@ public class BlockScanner {
                                 Block replacement = ForgeRegistries.BLOCKS.getValue(replacementBlockLocation);
                                 
                                 if (replacement != null) {
-                                    try {
-                                        // Use safer block replacement
-                                        safelyReplaceBlock(level, pos, replacement.defaultBlockState());
-                                        replacedBlocks.add(registryName + " -> " + replacementBlock);
-                                        replacementCount++;
-                                    } catch (Exception e) {
-                                        LOGGER.warn("Error replacing block " + registryName + " at " + pos + ": " + e.getMessage(), e);
+                                    // Preserve rotation and NBT data during replacement
+                                    BlockState originalState = level.getBlockState(pos);
+                                    BlockState replacementState = replacement.defaultBlockState();
+                                    BlockState stateWithProperties = preserveBlockProperties(originalState, replacementState);
+                                    
+                                    // Copy BlockEntity data if applicable
+                                    if (level instanceof ServerLevel) {
+                                        copyBlockEntityData((ServerLevel)level, pos, state.getBlock(), replacement);
                                     }
+                                    
+                                    level.setBlock(pos, stateWithProperties, 3);
+                                    replacementCount++;
                                 } else {
                                     System.err.println("Invalid block ID in block replacements: " + replacementBlock);
                                 }
@@ -350,7 +391,8 @@ public class BlockScanner {
 
             if (allDiscoveredModdedBlocks.isEmpty()) {
                 String playerName = "unknown";
-                if (mc.player.getName() != null) {
+                // Fix potential null pointer access by adding proper null checks
+                if (mc != null && mc.player != null && mc.player.getName() != null) {
                     playerName = mc.player.getName().getString();
                 }
                 
@@ -364,7 +406,7 @@ public class BlockScanner {
         // Add methods to show scan progress in client chat
         public void showScanStartMessage(int radius, int totalBlocks) {
             Minecraft mc = Minecraft.getInstance();
-            if (mc.player != null) {
+            if (mc != null && mc.player != null) {
                 mc.player.displayClientMessage(
                     new TextComponent("[BlockScanner] Starting scan of " + totalBlocks + 
                         " blocks in a " + radius + " block radius").withStyle(ChatFormatting.GREEN), 
@@ -375,7 +417,7 @@ public class BlockScanner {
         
         public void showScanProgressMessage(int percentage, int scanned, int total) {
             Minecraft mc = Minecraft.getInstance();
-            if (mc.player != null) {
+            if (mc != null && mc.player != null) {
                 mc.player.displayClientMessage(
                     new TextComponent(String.format("[BlockScanner] Progress: %d%% (%d/%d blocks scanned)", 
                         percentage, scanned, total)).withStyle(ChatFormatting.AQUA), 
@@ -386,7 +428,7 @@ public class BlockScanner {
         
         public void showScanCompleteMessage(int scanned, int replaced) {
             Minecraft mc = Minecraft.getInstance();
-            if (mc.player != null) {
+            if (mc != null && mc.player != null) {
                 mc.player.displayClientMessage(
                     new TextComponent(String.format("[BlockScanner] Scan complete: scanned %d blocks, replaced %d blocks", 
                         scanned, replaced)).withStyle(ChatFormatting.GREEN), 
@@ -485,8 +527,17 @@ public class BlockScanner {
                                 Block replacement = ForgeRegistries.BLOCKS.getValue(replacementBlockLocation);
 
                                 if (replacement != null) {
+                                    // Preserve rotation and NBT data during replacement
+                                    BlockState originalState = world.getBlockState(pos);
                                     BlockState replacementState = replacement.defaultBlockState();
-                                    world.setBlock(pos, replacementState, 3);
+                                    BlockState stateWithProperties = preserveBlockProperties(originalState, replacementState);
+                                    
+                                    // Copy BlockEntity data if applicable
+                                    if (world instanceof ServerLevel) {
+                                        copyBlockEntityData((ServerLevel)world, pos, state.getBlock(), replacement);
+                                    }
+                                    
+                                    world.setBlock(pos, stateWithProperties, 3);
                                     blocksReplaced++;
                                 } else {
                                     System.err.println("[BlockScanner] Invalid block ID in block replacements: " + replacementBlock);
@@ -512,18 +563,21 @@ public class BlockScanner {
             }
             
             // Generate suggested replacements after discovering new blocks
-            if (ScannedBlocksTracker.generateReplacementConfig()) {
+            if (ScannedBlocksTracker.generateReplacementConfig() && player != null && player.isAlive()) {
+                // Only send message if player is not null and still alive
                 player.sendMessage(new TextComponent("[BlockScanner] Generated suggested replacement config with newly discovered blocks")
                         .withStyle(ChatFormatting.GOLD), UUID.randomUUID());
             }
         }
         
-        // Send starting message to player
-        player.sendMessage(new TextComponent("[BlockScanner] Starting scan of " + totalBlocksToCheck + 
-                " blocks in a " + radius + " block radius").withStyle(ChatFormatting.GREEN), UUID.randomUUID());
+        // Send starting message to player - ensure player is not null and alive
+        if (player != null && player.isAlive()) {
+            player.sendMessage(new TextComponent("[BlockScanner] Starting scan of " + totalBlocksToCheck + 
+                    " blocks in a " + radius + " block radius").withStyle(ChatFormatting.GREEN), UUID.randomUUID());
+        }
         
-        // Log progress periodically
-        if (scanCount % 10000 == 0) {
+        // Log progress periodically - ensure player is not null and alive before sending messages
+        if (scanCount % 10000 == 0 && player != null && player.isAlive()) {
             int percentage = (scanCount * 100) / totalBlocksToCheck;
             String progressMsg = String.format("[BlockScanner] Progress: %d%% (%d/%d blocks scanned)", 
                     percentage, scanCount, totalBlocksToCheck);
@@ -531,11 +585,13 @@ public class BlockScanner {
             player.sendMessage(new TextComponent(progressMsg).withStyle(ChatFormatting.AQUA), UUID.randomUUID());
         }
         
-        // Send completion message
-        String completionMsg = String.format("[BlockScanner] Scan complete: scanned %d blocks, replaced %d blocks", 
-                scanCount, blocksReplaced);
-        LOGGER.info(completionMsg);
-        player.sendMessage(new TextComponent(completionMsg).withStyle(ChatFormatting.GREEN), UUID.randomUUID());
+        // Send completion message - ensure player is not null and alive
+        if (player != null && player.isAlive()) {
+            String completionMsg = String.format("[BlockScanner] Scan complete: scanned %d blocks, replaced %d blocks", 
+                    scanCount, blocksReplaced);
+            LOGGER.info(completionMsg);
+            player.sendMessage(new TextComponent(completionMsg).withStyle(ChatFormatting.GREEN), UUID.randomUUID());
+        }
     }
 
     private String getRegistryName(BlockState state) {
@@ -576,6 +632,124 @@ public class BlockScanner {
         } catch (IOException e) {
             System.err.println("Failed to write to log file: " + e.getMessage());
             e.printStackTrace(); // Print stack trace for debugging
+        }
+    }
+
+    /**
+     * Attempts to copy properties from the old block state to the new one
+     * Preserves rotation, direction, and other common properties
+     */
+    private BlockState preserveBlockProperties(BlockState oldState, BlockState newState) {
+        BlockState result = newState;
+        
+        // Fix the incompatible collection types
+        java.util.Collection<net.minecraft.world.level.block.state.properties.Property<?>> oldProps = oldState.getProperties();
+        java.util.Collection<net.minecraft.world.level.block.state.properties.Property<?>> newProps = newState.getProperties();
+        
+        // Find properties that exist in both blocks
+        for (net.minecraft.world.level.block.state.properties.Property<?> oldProp : oldProps) {
+            String propName = oldProp.getName();
+            
+            // Look for matching property in new block
+            for (net.minecraft.world.level.block.state.properties.Property<?> newProp : newProps) {
+                if (newProp.getName().equals(propName) && oldProp.getValueClass() == newProp.getValueClass()) {
+                    // Found matching property, try to copy the value
+                    result = copyProperty(oldState, result, oldProp, newProp);
+                }
+            }
+        }
+        
+        return result;
+    }
+
+    /**
+     * Copy a property value from old state to new state using generic types
+     */
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private <T extends Comparable<T>> BlockState copyProperty(
+            BlockState oldState, BlockState newState,
+            net.minecraft.world.level.block.state.properties.Property oldProp,
+            net.minecraft.world.level.block.state.properties.Property newProp) {
+        try {
+            T value = (T)oldState.getValue(oldProp);
+            // Check if the new property accepts this value
+            if (newProp.getPossibleValues().contains(value)) {
+                return newState.setValue((net.minecraft.world.level.block.state.properties.Property<T>)newProp, value);
+            }
+        } catch (Exception e) {
+            LOGGER.debug("Unable to copy property {} from {} to {}: {}", 
+                oldProp.getName(), oldState.getBlock().getRegistryName(), 
+                newState.getBlock().getRegistryName(), e.getMessage());
+        }
+        return newState;
+    }
+
+    /**
+     * Copy BlockEntity NBT data when replacing blocks
+     */
+    private void copyBlockEntityData(ServerLevel level, BlockPos pos, Block oldBlock, Block newBlock) {
+        // Fix the isEntityBlock check with an alternative approach
+        boolean oldHasBlockEntity = false;
+        boolean newHasBlockEntity = false;
+        
+        try {
+            // Check if blocks might have block entities by trying to create them
+            oldHasBlockEntity = level.getBlockEntity(pos) != null;
+            // For new block, check if it's in a list of known block entity types
+            newHasBlockEntity = newBlock instanceof net.minecraft.world.level.block.EntityBlock;
+        } catch (Exception e) {
+            LOGGER.debug("Error checking block entity capability: {}", e.getMessage());
+            return;
+        }
+        
+        // Only proceed if both blocks can have block entities
+        if (!oldHasBlockEntity || !newHasBlockEntity) {
+            return;
+        }
+        
+        try {
+            // Get the old BlockEntity
+            net.minecraft.world.level.block.entity.BlockEntity oldBE = level.getBlockEntity(pos);
+            if (oldBE == null) {
+                return;
+            }
+            
+            // Save the old BlockEntity's data
+            net.minecraft.nbt.CompoundTag oldData = oldBE.saveWithoutMetadata();
+            if (oldData.isEmpty()) {
+                return;
+            }
+            
+            // Store the data to apply after block replacement
+            level.getServer().tell(new net.minecraft.server.TickTask(0, () -> {
+                try {
+                    // Get the new BlockEntity after replacement
+                    net.minecraft.world.level.block.entity.BlockEntity newBE = level.getBlockEntity(pos);
+                    if (newBE != null) {
+                        // Create a copy to avoid modifying the original
+                        net.minecraft.nbt.CompoundTag dataCopy = oldData.copy();
+                        
+                        // Keep original block ID to avoid confusion
+                        dataCopy.remove("id");
+                        
+                        // Load data into new BlockEntity
+                        try {
+                            newBE.load(dataCopy);
+                            // Mark the BlockEntity as dirty to ensure it's saved
+                            newBE.setChanged();
+                            
+                            // Send update to clients
+                            level.sendBlockUpdated(pos, level.getBlockState(pos), level.getBlockState(pos), 3);
+                        } catch (Exception e) {
+                            LOGGER.debug("Failed to load NBT data into new block entity: {}", e.getMessage());
+                        }
+                    }
+                } catch (Exception e) {
+                    LOGGER.debug("Error copying block entity data: {}", e.getMessage());
+                }
+            }));
+        } catch (Exception e) {
+            LOGGER.debug("Exception while attempting to copy BlockEntity data: {}", e.getMessage());
         }
     }
 }

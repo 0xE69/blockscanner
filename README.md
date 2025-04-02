@@ -1,118 +1,134 @@
 # BlockScanner
 
-BlockScanner is a powerful Minecraft Forge utility mod designed to solve a critical problem faced by modded Minecraft players: migrating worlds between mod packs or dealing with removed mods.
+A Minecraft Forge mod for scanning and replacing modded blocks to help with world maintenance and mod transitions.
 
-## What Does BlockScanner Do?
+## Overview
 
-When removing mods from a world or upgrading to a newer mod pack, you often encounter issues with missing blocks that can corrupt chunks or cause errors. BlockScanner provides a solution by:
+BlockScanner provides tools to scan Minecraft worlds for blocks from specific mods, and replace them with blocks from other mods or vanilla Minecraft. This is especially useful when:
 
-1. Scanning chunks for modded blocks
-2. Replacing them with configurable alternatives 
-3. Doing this automatically or on-demand through commands
+- Uninstalling mods from an existing world
+- Upgrading worlds between Minecraft versions
+- Fixing broken/missing blocks after mod updates
 
-## Key Features
+## Features
 
-- **Block Scanning**: Detects all modded blocks in a specified radius
-- **Configurable Replacements**: Define custom block replacements via JSON configuration
-- **Server Commands**: Full suite of admin commands for managing the scanning process
-- **Auto-Scanning**: Can automatically scan around players and newly loaded chunks
-- **Safe Block Replacement**: Multiple fallback mechanisms to prevent crashes during replacement
-- **Detailed Logging**: Complete logs of all detected and replaced blocks
-- **Visual Progress Tracking**: Real-time progress bars and percentage indicators for long operations
-- **Multi-Threaded Processing**: Background processing to prevent server lag during replacements
+- **Block Scanning**: Scans for modded blocks around players or in specified areas
+- **Automatic Replacement**: Configurable mappings to replace blocks from one mod with another
+- **Property Preservation**: Maintains block rotation, direction, and other properties during replacement
+- **NBT Data Preservation**: Keeps inventory contents and other block entity data when replacing containers and machines
+- **Bulk Operations**: Process entire areas or maps with a single command
+- **Registry Scanning**: Identifies all modded blocks and items in your current installation
 
 ## Commands
 
-- `/blockscanner scan [radius]` - Scan for modded blocks in specified radius
-- `/blockscanner replace <from> <to> [radius]` - Replace specific blocks in radius
-- `/blockscanner reload` - Reload the configuration file
-- `/blockscanner addblock <from> <to>` - Add a new block replacement to the config file
-- `/blockscanner replacechunk <pos>` - Replace blocks in a specific chunk
-- `/blockscanner activate [radius]` - Start automatic replacement in radius
-- `/blockscanner deactivate` - Stop automatic replacement
-- `/blockscanner status` - Check current status of replacements
-- `/blockscanner processall` - Process all loaded chunks
-- `/blockscanner autoscan on|off|status` - Control automatic scanning around players
-- `/blockscanner listscanned` - List all scanned modded blocks
-- `/blockscanner generateconfig` - Generate a suggested replacement configuration based on scanned blocks
+BlockScanner provides several commands, all accessible via `/blockscanner` or the shorthand `/bscan`.
+
+### Basic Commands
+
+- `/bscan scan [radius]` - Scan for modded blocks around you
+- `/bscan replace <fromBlock> <toBlock> [radius]` - Replace specific blocks
+- `/bscan reload` - Reload configuration files
+- `/bscan addblock <fromBlock> <toBlock>` - Add a new block replacement rule
+- `/bscan listscanned` - List all scanned modded blocks
+- `/bscan generateconfig` - Generate a suggested replacement configuration
+
+### Area Processing
+
+- `/bscan activate [radius]` - Activate block replacements in an area
+- `/bscan processall` - Process all loaded chunks
+- `/bscan replacechunk <pos>` - Replace blocks in a specific chunk
+- `/bscan status` - Check replacement status
+
+### Map Operations
+
+- `/bscan scanmap <x1> <z1> <x2> <z2> [renderDistance]` - Scan a rectangular area of the map
+- `/bscan replacemap <x1> <z1> <x2> <z2> [renderDistance]` - Replace blocks in a map area
+- `/bscan stopmap` - Stop an in-progress map scan
+
+### Auto Scanning
+
+- `/bscan autoscan on|off` - Toggle automatic scanning around players
+- `/bscan autoscan status` - Check auto-scanning status
+
+### Registry Commands
+
+- `/bscan registryscan` - Scan and save all modded registry entries
+- `/bscan listmods` - List all mods with registry entries
+- `/bscan listitems [modid]` - List modded items (optionally filtered by mod)
+- `/bscan listblocks [modid]` - List modded blocks (optionally filtered by mod)
 
 ## Configuration
 
-BlockScanner uses two separate configuration files:
+BlockScanner stores its configuration in the `config/blockscanner/` directory:
 
-1. **Block Replacements**: Located at `config/blockscanner/block_replacements.json`
-2. **Scanned Blocks Tracker**: Located at `config/blockscanner/scanned_blocks.json`
+- `block_replacements.json` - Main configuration file for block replacement rules
+- `suggested_replacements.json` - Generated suggestions based on scanned blocks
+- `modded_blocks.yml` - List of discovered modded blocks
+- `modded_items.yml` - List of discovered modded items
 
-### Block Replacements
+### Block Replacement Format
 
-This configuration defines which blocks should be replaced with what. The format is:
-
-```json
-[
-    {
-        "original": "modid:block_to_replace",
-        "replacement": "modid:replacement_block"
-    },
-    ...
-]
-```
-
-A default configuration is provided in the mod, but you can customize it to fit your needs.
-
-### Scanned Blocks Tracker
-
-This file maintains a list of all modded blocks that have been discovered during scanning. It's automatically updated when new blocks are found and can be used to generate suggested replacement configurations.
-
-### Adding New Block Replacements
-
-You can add new block replacements in four ways:
-
-1. **Manually edit** the `config/blockscanner/block_replacements.json` file
-2. **Use the in-game command**: `/blockscanner addblock modid:blockname minecraft:replacement_block`
-3. **Scan and identify blocks** with `/blockscanner scan 32`, then run `/blockscanner generateconfig` to create a suggested replacement configuration
-4. **Use the auto-generated config**: After scanning, edit the `config/blockscanner/suggested_replacements.json` file and rename it to `block_replacements.json`
-
-After making changes, run `/blockscanner reload` to apply them without restarting the game.
-
-## Usage Examples
-
-### Removing a Mod
-
-If you're removing a mod (e.g., "tconstruct"), add entries to replace its blocks with suitable alternatives:
+The block replacement configuration uses a simple JSON format:
 
 ```json
 {
-    "original": "tconstruct:clear_glass",
-    "replacement": "minecraft:glass"
+  "modid:block_name": "minecraft:replacement_block",
+  "anothermod:some_block": "minecraft:stone",
+  "problematic:machine_block": "minecraft:furnace"
 }
 ```
 
-### Upgrading a World
+## Automatic Replacement
 
-When upgrading to a newer Minecraft version or mod pack, scan your world and generate a list of blocks that need replacement:
+When block replacement is active, the mod will:
 
-1. Install BlockScanner in your old world
-2. Run `/blockscanner scan 128` to identify modded blocks
-3. Configure replacements in the JSON file
-4. Run `/blockscanner activate 128` to replace blocks in a 128-block radius
+1. Preserve block orientation (e.g., a north-facing furnace remains north-facing)
+2. Maintain block states (e.g., slabs placed on the top half stay on the top half)
+3. Copy NBT data when possible (e.g., inventory contents in containers)
 
-### Server Administration
+## Advanced Usage
 
-For server admins managing large worlds:
+### Fixing Missing Blocks
 
-1. Configure the block replacement JSON
-2. Use `/blockscanner processall` to process all loaded chunks
-3. Enable auto-scanning with `/blockscanner autoscan on` to handle newly loaded chunks
+When a mod is uninstalled and leaves missing blocks, run these commands:
 
-## New Features
+1. `/bscan registryscan` - Scan all available blocks in current installation
+2. `/bscan scan 128` - Scan around the player for modded blocks
+3. `/bscan generateconfig` - Create suggested replacements
+4. Edit the suggested_replacements.json file to adjust replacements 
+5. Rename to block_replacements.json or copy the content to the existing file
+6. `/bscan reload` - Reload the configuration
+7. `/bscan activate 128` - Activate replacements
 
-### Visual Progress Tracking
+### Map Processing
 
-BlockScanner now provides real-time progress information:
+For large servers or maps, use the map commands:
 
-- Text-based progress bars in the console and server log
-- Percentage completion indicators for long-running operations
-- Regular status updates for block replacement operations
-- Summary reports upon task completion
+```
+/bscan replacemap -1000 -1000 1000 1000 256
+```
 
-Example progress bar:
+This will systematically teleport to positions covering the specified area, 
+activating replacements at each location.
+
+## Performance Considerations
+
+- Processing large areas can be resource-intensive
+- The mod uses multi-threading where possible to improve performance
+- For very large operations, consider increasing Java heap allocation
+
+## Compatibility
+
+This mod is compatible with:
+- Minecraft Forge 1.18.2
+- Single player and multiplayer servers
+- Most other Forge mods
+
+## License
+
+Crafting Dead Copyright (C) 2022 NexusNode LTD
+This mod is available under the terms of the Non-Commercial Software License Agreement.
+
+## Credits
+
+Developed by NexusNode team
